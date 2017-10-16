@@ -1,0 +1,84 @@
+#==================================================================#
+#         Working gitignore for Unity 4.6 -> current (5.1)         #
+#==================================================================#
+#   When cloning the repo, Unity may ask to rebuild its database   #
+#   Let it do it. It will take some times to rebuild the           #
+#   .meta files, but it saves a lot of space on the git repo       #
+#   This file should be enough to allow                            #
+#    multiple devs to work at the same time.                       #
+#   It won't upload personal settings.                             #
+#   Just take care with .scene files, git can't parse them !       #
+#==================================================================#
+
+#=============================#
+#=============================#
+#      IGNORE LIST FILES      #
+#=============================#
+#=============================#
+
+
+# =============== #
+# Unity generated #
+# =============== #
+[Tt]emp/
+[Oo]bj/
+[Bb]uild
+Library/
+[Ww]ebGLBuild/
+[Hh]tmlBuild/
+[Ww]indowsBuild/
+[Ll]inuxBuild/
+sysinfo.txt
+
+# ===================================== #
+# Visual Studio / MonoDevelop generated #
+# ===================================== #
+[Ee]xported[Oo]bj/
+/*.booproj
+/*.csproj
+/*.pidb
+/*.sln*
+/*.suo
+/*.unityproj
+/*.user
+/*.userprefs
+/*.xaccproj
+/*.xaccdata
+.vs/
+
+ 
+# ============ #
+# OS generated #
+# ============ #
+.DS_Store*
+._*
+.Spotlight-V100
+.Trashes
+Icon?
+ehthumbs.db
+[Tt]humbs.db
+
+
+
+
+#==============================#
+#==============================#
+#   DO NOT IGNORE LIST FILES   #
+#==============================#
+#==============================#
+
+#===================================================#
+#   Common rules & settings (build, project, etc)   #
+#===================================================#
+!Library/AnnotationManager
+!Library/assetDatabase3
+!Library/AssertImportState
+!Library/AssetServerCache3
+
+!Library/BuildPlayer.prefs
+
+!Library/AssetVersioning.db
+
+!Library/BuildSettings.asset
+!Library/MonoManager.assert
+!Library/ProjectSettings.asset
