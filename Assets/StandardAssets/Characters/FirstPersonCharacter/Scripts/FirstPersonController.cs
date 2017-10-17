@@ -41,6 +41,7 @@ namespace UnityStandardAssets.Characters.FirstPerson
         private float m_NextStep;
         private bool m_Jumping;
         private AudioSource m_AudioSource;
+		private UnityEngine.UI.Text SpeedOMeterText;
 
         // Use this for initialization
         private void Start()
@@ -55,6 +56,9 @@ namespace UnityStandardAssets.Characters.FirstPerson
             m_Jumping = false;
             m_AudioSource = GetComponent<AudioSource>();
 			m_MouseLook.Init(transform , m_Camera.transform);
+			SpeedOMeterText = GameObject.Find ("SpeedOMeter").GetComponent<UnityEngine.UI.Text>();
+			if (SpeedOMeterText == null)
+				Debug.Log ("problem");
         }
 
 
@@ -93,9 +97,13 @@ namespace UnityStandardAssets.Characters.FirstPerson
 
 
         private void FixedUpdate()
-        {
-            float speed;
-            GetInput(out speed);
+		{
+			float speed = m_CharacterController.velocity.magnitude ; // Player speed bound to m_WalkSpeed and m_RunSpeed
+			// Actualize SpeedOMeter UI text
+			SpeedOMeterText.text = speed + "m/s";
+
+            float speedInputVector;
+			GetInput(out speedInputVector);
             // always move along the camera forward as it is the direction that it being aimed at
             Vector3 desiredMove = transform.forward*m_Input.y + transform.right*m_Input.x;
 
@@ -105,8 +113,8 @@ namespace UnityStandardAssets.Characters.FirstPerson
 				m_CharacterController.height / 2f, Physics.AllLayers, QueryTriggerInteraction.Ignore);
             desiredMove = Vector3.ProjectOnPlane(desiredMove, hitInfo.normal).normalized;
 
-            m_MoveDir.x = desiredMove.x*speed;
-            m_MoveDir.z = desiredMove.z*speed;
+			m_MoveDir.x = desiredMove.x*speedInputVector;
+			m_MoveDir.z = desiredMove.z*speedInputVector;
 
 
             if (m_CharacterController.isGrounded)
@@ -115,11 +123,12 @@ namespace UnityStandardAssets.Characters.FirstPerson
 
                 if (m_Jump)
                 {
-					// TODO replace *1,5 with vec3 speed 
+					//TODO : rethink when speed system is fully set
+//					Debug.Log (speed / m_WalkSpeed);
 					if(m_IsWalking)
                     	m_MoveDir.y = m_JumpSpeed;
 					else
-						m_MoveDir.y = m_JumpSpeed * 1.5f;
+						m_MoveDir.y = m_JumpSpeed * 1.5f; // keep a 1,5 factor between standard jump and max jump
                     PlayJumpSound();
                     m_Jump = false;
                     m_Jumping = true;
@@ -132,8 +141,8 @@ namespace UnityStandardAssets.Characters.FirstPerson
 
             m_CollisionFlags = m_CharacterController.Move(m_MoveDir*Time.fixedDeltaTime);
 
-            ProgressStepCycle(speed);
-            UpdateCameraPosition(speed);
+			ProgressStepCycle(speedInputVector);
+			UpdateCameraPosition(speedInputVector);
 
             m_MouseLook.UpdateCursorLock();
         }
