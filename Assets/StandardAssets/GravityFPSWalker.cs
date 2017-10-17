@@ -21,7 +21,7 @@
 [RequireComponent(typeof(Rigidbody))]
 public class GravityFPSWalker : MonoBehaviour {
 
-	public Transform LookTransform;ISerializationCallbackReceiver 
+	public Transform LookTransform;
 	public Vector3 Gravity = Vector3.down * 9.81f;
 	public float RotationRate = 0.1f;
 	public float Velocity = 8;
