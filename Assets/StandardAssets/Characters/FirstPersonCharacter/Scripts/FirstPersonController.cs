@@ -4,6 +4,12 @@ using UnityStandardAssets.CrossPlatformInput;
 using UnityStandardAssets.Utility;
 using Random = UnityEngine.Random;
 
+
+/*
+ * Know bug :  bouncing jump if inputing space mid air
+ * 
+ */
+
 namespace UnityStandardAssets.Characters.FirstPerson
 {
     [RequireComponent(typeof (CharacterController))]
@@ -43,6 +49,7 @@ namespace UnityStandardAssets.Characters.FirstPerson
         private AudioSource m_AudioSource;
 
 		private UnityEngine.UI.Text SpeedOMeterText;
+		private float nominalSpeed;
 		private float stackSpeed; 
 
         // Use this for initialization
@@ -59,7 +66,6 @@ namespace UnityStandardAssets.Characters.FirstPerson
             m_AudioSource = GetComponent<AudioSource>();
 			m_MouseLook.Init(transform , m_Camera.transform);
 			SpeedOMeterText = GameObject.Find ("SpeedOMeter").GetComponent<UnityEngine.UI.Text>();
-			stackSpeed = 0.0f;
         }
 
 
@@ -100,11 +106,12 @@ namespace UnityStandardAssets.Characters.FirstPerson
         private void FixedUpdate()
 		{
 			float speed = m_CharacterController.velocity.magnitude ; // Player speed bound to m_WalkSpeed and m_RunSpeed
+
 			// Actualize SpeedOMeter UI text
 			SpeedOMeterText.text = speed + "m/s";
 
-            float speedInputVector;
-			GetInput(out speedInputVector);
+			float speedInput;
+			GetInput(out speedInput); // <=> walkspeed || runspeed => determine basic length of direction vector
             // always move along the camera forward as it is the direction that it being aimed at
             Vector3 desiredMove = transform.forward*m_Input.y + transform.right*m_Input.x;
 
@@ -114,8 +121,8 @@ namespace UnityStandardAssets.Characters.FirstPerson
 				m_CharacterController.height / 2f, Physics.AllLayers, QueryTriggerInteraction.Ignore);
             desiredMove = Vector3.ProjectOnPlane(desiredMove, hitInfo.normal).normalized;
 
-			m_MoveDir.x = desiredMove.x*speedInputVector;
-			m_MoveDir.z = desiredMove.z*speedInputVector;
+			m_MoveDir.x = desiredMove.x*speedInput;
+			m_MoveDir.z = desiredMove.z*speedInput;
 
 
             if (m_CharacterController.isGrounded)
@@ -126,6 +133,7 @@ namespace UnityStandardAssets.Characters.FirstPerson
                 {
 					Debug.Log (speed/(m_RunSpeed*2));
 					m_MoveDir.y = m_JumpSpeed + m_JumpSpeed*(speed/(m_RunSpeed*2)) ;  // keep a 1,5 factor between standard jump and max jump
+																					  // Current values without any stackSpeed :
 												                                      // Standing jump <=> 1 * basic jump height
                                                                                       // Walking jump <=> 1,2 * basic jump height
                                                                                       // Max speed jump  <=> 1,5 * basic jump height
@@ -139,10 +147,11 @@ namespace UnityStandardAssets.Characters.FirstPerson
                 m_MoveDir += Physics.gravity*m_GravityMultiplier*Time.fixedDeltaTime;
             }
 
-            m_CollisionFlags = m_CharacterController.Move(m_MoveDir*Time.fixedDeltaTime);
+            m_CollisionFlags = m_CharacterController.Move(m_MoveDir*Time.fixedDeltaTime);  // ! TWEAK THAT ! 
 
-			ProgressStepCycle(speedInputVector);
-			UpdateCameraPosition(speedInputVector);
+			// Only used for head bobing 
+			ProgressStepCycle(speedInput);
+			UpdateCameraPosition(speedInput);
 
             m_MouseLook.UpdateCursorLock();
         }
