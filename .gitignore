@@ -29,6 +29,8 @@ Library/
 [Ww]indowsBuild/
 [Ll]inuxBuild/
 sysinfo.txt
+# Unity3D generated meta files
+*.pidb.meta
 
 # ===================================== #
 # Visual Studio / MonoDevelop generated #
