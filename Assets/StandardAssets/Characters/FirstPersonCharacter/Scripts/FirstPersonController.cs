@@ -41,7 +41,9 @@ namespace UnityStandardAssets.Characters.FirstPerson
         private float m_NextStep;
         private bool m_Jumping;
         private AudioSource m_AudioSource;
+
 		private UnityEngine.UI.Text SpeedOMeterText;
+		private float stackSpeed; 
 
         // Use this for initialization
         private void Start()
@@ -57,8 +59,7 @@ namespace UnityStandardAssets.Characters.FirstPerson
             m_AudioSource = GetComponent<AudioSource>();
 			m_MouseLook.Init(transform , m_Camera.transform);
 			SpeedOMeterText = GameObject.Find ("SpeedOMeter").GetComponent<UnityEngine.UI.Text>();
-			if (SpeedOMeterText == null)
-				Debug.Log ("problem");
+			stackSpeed = 0.0f;
         }
 
 
@@ -123,12 +124,11 @@ namespace UnityStandardAssets.Characters.FirstPerson
 
                 if (m_Jump)
                 {
-					//TODO : rethink when speed system is fully set
-//					Debug.Log (speed / m_WalkSpeed);
-					if(m_IsWalking)
-                    	m_MoveDir.y = m_JumpSpeed;
-					else
-						m_MoveDir.y = m_JumpSpeed * 1.5f; // keep a 1,5 factor between standard jump and max jump
+					Debug.Log (speed/(m_RunSpeed*2));
+					m_MoveDir.y = m_JumpSpeed + m_JumpSpeed*(speed/(m_RunSpeed*2)) ;  // keep a 1,5 factor between standard jump and max jump
+												                                      // Standing jump <=> 1 * basic jump height
+                                                                                      // Walking jump <=> 1,2 * basic jump height
+                                                                                      // Max speed jump  <=> 1,5 * basic jump height
                     PlayJumpSound();
                     m_Jump = false;
                     m_Jumping = true;
