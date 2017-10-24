@@ -59,6 +59,7 @@ public class parkourFPSController : MonoBehaviour
 	// Update is called once per frame
 	void Update ()
     {
+        Debug.Log("UpdateStart");
 Debug.Log("playerState : "+playerState);
 //TODO : demux input and physic handling for better performances ?
 
@@ -67,37 +68,37 @@ Debug.Log("playerState : "+playerState);
         /*** CALCULATING FORCE FROM INPUTS & STATE***/ 
         switch(playerState)
         {
-        case PlayerState.running:
+            case PlayerState.running:
             {
                 updateRunning();
                 break; 
             }
-        case PlayerState.jumping:
+            case PlayerState.jumping:
             {
                 updateJumping();
                 break; 
             }
-        case PlayerState.walling:
+            case PlayerState.walling:
             {
                 updateWalling();
                 break; 
             }
-        case PlayerState.sliding:
+            case PlayerState.sliding:
             {
                 updateSliding();
                 break; 
             }
-        case PlayerState.edging:
+            case PlayerState.edging:
             {
                 updateEdging();
                 break; 
             }
-        case PlayerState.pushing:
+            case PlayerState.pushing:
             {
                 updatePushing();
                 break; 
             }
-        default:
+            default:
             { break; }
         }
 
@@ -113,8 +114,10 @@ Debug.Log("playerState : "+playerState);
 	}
 
     // FixedUpdate is called once per physic cycle
-//    void FixedUpdate ()
-//    { }
+    void FixedUpdate ()
+    { 
+        Debug.Log("FixedUpdateStart");
+    }
         
     void updateRunning()
     {
@@ -159,8 +162,8 @@ Debug.Log("playerState : "+playerState);
             }
 
             // Compute moveDir according to minSpeed, maxNominalSpeed, deltaTime, killStackSpeed, etc
-//            moveDir *= minSpeed + ((maxNominalSpeed-minSpeed) * (forwardKeyDownTime / rampUpTime)); // MESSED UP BECAUSE FOR SOME REASON playerState is constantly changing !!!
-            moveDir *= minSpeed;
+            moveDir *= minSpeed + ((maxNominalSpeed-minSpeed) * (forwardKeyDownTime / rampUpTime)); // MESSED UP BECAUSE FOR SOME REASON playerState is constantly changing !!!
+//            moveDir *= minSpeed;
             Debug.Log("test");
 
 //            if(CrossPlatformInputManager.GetButton("Jump"))
@@ -172,8 +175,12 @@ Debug.Log("playerState : "+playerState);
         }
         else // Player is running from an edge => change state to "jumping" and override current update()'s cycle result
         {
-            playerState = PlayerState.jumping;
+//            playerState = PlayerState.jumping;
         }
+
+        //DEBUG ONLY
+
+        moveDir.y -= gravity * Time.deltaTime;
     }
 
     void updateJumping()
