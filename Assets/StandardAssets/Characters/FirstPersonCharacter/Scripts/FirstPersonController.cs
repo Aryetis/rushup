@@ -27,7 +27,7 @@ namespace UnityStandardAssets.Characters.FirstPerson
         [SerializeField] private AudioClip m_LandSound;           // the sound played when character touches back on ground.
 
 
-        private enum PlayerState {running, jumping, walling};
+        private enum PlayerState {running, jumping, walling, sliding};
 
         private Camera m_Camera;
         private bool m_JumpRequest;
@@ -45,18 +45,21 @@ namespace UnityStandardAssets.Characters.FirstPerson
         [SerializeField] private float m_minSpeed;                   // Player will start running at m_minSpeed
         [SerializeField] private float m_maxNominalSpeed;            // Player won't be able to go faster than m_minSpeed without killing ennemies
         [SerializeField] private float m_runAccelerationFactor;   // Player gain m_accelerationFactor porcentage of its actual speed per second (on the ground)
-        [SerializeField] private float m_runDecelerationFactor;   // Player loose m_accelerationFactor porcentage of its actual speed per second (on the ground)
-        [SerializeField] private float m_jumpAccelerationFactor;      // Player gain m_accelerationFactor porcentage of its actual speed per second (in air)
-        [SerializeField] private float m_jumpDecelerationFactor;      // Player loose m_accelerationFactor porcentage of its actual speed per second (in air)
+        [SerializeField] private float m_runDecelerationFactor;   // Player loose m_runDecelerationFactor porcentage of its actual speed per second (on the ground)
+        [SerializeField] private float m_jumpAccelerationFactor;      // Player gain m_jumpAccelerationFactor porcentage of its actual speed per second (in air)
+        [SerializeField] private float m_jumpDecelerationFactor;      // Player loose m_jumpDecelerationFactor porcentage of its actual speed per second (in air)
                                                                      // WARNING : affect strongly the curvature of the jump (recommanded value : 0)
-        [SerializeField] private float m_wallAccelerationFactor;     // Player gain m_accelerationFactor porcentage of its actual speed per second (during wallrun)
+        [SerializeField] private float m_wallAccelerationFactor;     // Player gain m_wallAccelerationFactor porcentage of its actual speed per second (during wallrun)
                                                                      // WARNING : why the heck would the player accelerate on wall ? Do whatever you want ....
-        [SerializeField] private float m_wallDecelerationFactor;     // Player loose m_accelerationFactor porcentage of its actual speed per second (during wallrun)
+        [SerializeField] private float m_wallDecelerationFactor;     // Player loose m_wallDecelerationFactor porcentage of its actual speed per second (during wallrun)
+        [SerializeField] private float m_slidingAccelerationFactor;      // Player gain m_slidingAccelerationFactor porcentage of its actual speed per second (sliding)
+                                                                         // WARNING : makes no sense setting it to something else than 0
+        [SerializeField] private float m_slidingDecelerationFactor;      // Player loose m_slidingDecelerationFactor porcentage of its actual speed per second (sliding)
         [SerializeField] private float m_wallrunDropSpeed;           // Player will let go of its wallrun if speed goes below m_wallrunDropSpeed
         [SerializeField] private float m_stackSpeedBonus;            // Each monster killed make player goes faster by m_stackSpeedBonus m/s
         private PlayerState playerState = PlayerState.jumping;
         private UnityEngine.UI.Text m_SpeedOMeterText;       // Text printed on the UI containing speed informations
-        private Vector3 m_previousNormaliedBaseVector;       //
+        private Vector3 m_previousTimeNormaliedBaseVector;       //
         private Vector3 m_previousMoveVector;                //
         private Vector3 m_previousMoveDir;
         // Speed value is split as the following : speed = m_minSpeed + m_speedporcentage*normalizedSpeedVector + m_stackSpeedFactor*m_stackSpeedBonus
@@ -137,114 +140,91 @@ namespace UnityStandardAssets.Characters.FirstPerson
             // normalize input if it exceeds 1 in combined length:
             if (m_Input.sqrMagnitude > 1)
                 m_Input.Normalize();
-
+            
             // always move along the camera forward as it is the direction that it being aimed at
             Vector3 desiredMove = transform.forward * m_Input.y + transform.right * m_Input.x;
 
-            /*** SET MoveDir.x & z ***/
-            // get a normal for the surface that is being touched to move along it
-            RaycastHit hitInfoDown;
-            Physics.SphereCast (transform.position, m_CharacterController.radius, Vector3.down, out hitInfoDown,
-                m_CharacterController.height / 2f, Physics.AllLayers, QueryTriggerInteraction.Ignore);
-            desiredMove = Vector3.ProjectOnPlane (desiredMove, hitInfoDown.normal).normalized;
-
-            m_MoveDir.x = desiredMove.x;
-            m_MoveDir.z = desiredMove.z;
-
-            Debug.Log(desiredMove);
-
-            /*** SET MoveDir.y ***/
+            Vector3 moveVector = new Vector3();
+            Vector3 m_timeNormalizedBaseVector = new Vector3();
+            Debug.Log("playerState : " + playerState);
             switch (playerState)
             {
                 case PlayerState.running:
                 {
-                    m_MoveDir.y = -m_StickToGroundForce; // emulate gravity, in case player is walking on a slanted floor
-                    if (m_JumpRequest)
+                    /*** MODIFY desiredMove according to state ***/
+                    // get a normal for the surface that is being touched to move along it
+                    RaycastHit hitInfoDown;
+                    Physics.SphereCast (transform.position, m_CharacterController.radius, Vector3.down, out hitInfoDown,
+                        m_CharacterController.height / 2f, Physics.AllLayers, QueryTriggerInteraction.Ignore);
+                    desiredMove = Vector3.ProjectOnPlane (desiredMove, hitInfoDown.normal).normalized;
+
+                    // x & z defined, let's define y
+                    if(m_JumpRequest)
                     {
-                        // TODO TWEAK IT SO WE  keep a 1,5 factor between standard jump and max speed jump
-                        m_MoveDir.y = m_jumpStrength; // Give impulse to the player
-                        startJump ();
+                        desiredMove.y += m_jumpStrength; // Give impulse to the player, tweak to take into account speed, max speed jump must be 1.5*m_jumpStrength
+                        startJump();
                     }
+                    else 
+                        desiredMove.y -= m_StickToGroundForce;
+
+                    /*** UPDATE ACCELERATION ***/
+                    //TODO modify m_speedPorcentage : add support for first decelerating m_stackBonus shenanigans
+                    if(accelerating)
+                    {
+                        m_timeNormalizedBaseVector = desiredMove * Time.fixedDeltaTime;  // <=> "time normalized" direction vector 
+                        m_speedPorcentage += m_runAccelerationFactor * Time.fixedDeltaTime;
+                        if (m_speedPorcentage > 100)
+                            m_speedPorcentage = 100;
+                    }
+                    else // decelerating
+                    {
+                        m_timeNormalizedBaseVector = m_previousTimeNormaliedBaseVector; 
+                        m_speedPorcentage -= m_runDecelerationFactor * Time.fixedDeltaTime;
+                        if(m_speedPorcentage < 0)
+                        {
+                            m_speedPorcentage = 0;
+                            moveVector.Set(0,0,0);
+                            break;
+                        }
+                    }
+
+                    /*** DEFINE moveVector ***/
+                    moveVector = m_minSpeed * m_timeNormalizedBaseVector + // Minimal speed
+                        ((m_speedPorcentage * (m_timeNormalizedBaseVector) / 100) * (m_maxNominalSpeed - m_minSpeed)) + // Linear acceleration
+                        m_stackSpeedFactor * m_timeNormalizedBaseVector; // stack
+
                     break;
                 }
+
                 case PlayerState.jumping:
                 {
                     RaycastHit hitInfoUp;
                     if ( Physics.SphereCast (transform.position, m_CharacterController.radius, Vector3.up, out hitInfoUp,
                         m_CharacterController.height / 2f, Physics.AllLayers, QueryTriggerInteraction.Ignore) ) // player hit its head during a jump     
-                        m_MoveDir.y=0;
+                        moveVector.y=0;
 
-                    m_MoveDir.x = m_previousMoveDir.x;
-                    m_MoveDir.z = m_previousMoveDir.z;
-                    m_MoveDir += Physics.gravity * m_GravityMultiplier * Time.fixedDeltaTime;
+                    moveVector.x = m_previousMoveDir.x;
+                    moveVector.y += Physics.gravity.y * m_GravityMultiplier * Time.fixedDeltaTime;
+                    moveVector.z = m_previousMoveDir.z;
                     break;
                 }
+
                 case PlayerState.walling:
                 {
                     break;
                 }
-            }
-                
-                
-            /*** CREATE FORCE (according to correct acceleration, deceleration factors) ***/
-            Vector3 m_normalizeBaseVector;
-            Vector3 moveVector;
 
-            // Setting localAccelFactor and localDecelFactor
-            float localAccelFactor=0.0f;
-            float localDecelFactor=0.0f;
-
-            switch (playerState)
-            {
-                case PlayerState.running:
+                case PlayerState.sliding:
                 {
-                    localAccelFactor = m_runAccelerationFactor;
-                    localAccelFactor = m_runDecelerationFactor;
-                    break;
-                }
-                case PlayerState.jumping:
-                {
-                    localAccelFactor = m_jumpAccelerationFactor;
-                    localAccelFactor = m_jumpDecelerationFactor;
-                    break;
-                }
-            case PlayerState.walling:
-                {
-                    localAccelFactor = m_wallAccelerationFactor;
-                    localDecelFactor = m_wallDecelerationFactor;
                     break;
                 }
             }
-
-            // Calculating m_SpeedPorcentage
-            if (accelerating)
-            {
-                Debug.Log("bouze de mamouth");
-                m_normalizeBaseVector = m_MoveDir * Time.fixedDeltaTime;  // <=> normalized direction vector 
-                m_speedPorcentage += localAccelFactor * Time.fixedDeltaTime;
-                if (m_speedPorcentage > 100)
-                    m_speedPorcentage = 100;
-            }
-            else // decelerating
-            {
-                Debug.Log("bite de chat");
-                m_normalizeBaseVector = m_previousNormaliedBaseVector; 
-                m_speedPorcentage -= localDecelFactor * Time.fixedDeltaTime;
-                if (m_speedPorcentage < 0)
-                    m_speedPorcentage = 0;
-            }
-
-            moveVector = m_minSpeed * m_normalizeBaseVector + // Minimal speed
-                        ((m_speedPorcentage * (m_normalizeBaseVector) / 100) * (m_maxNominalSpeed - m_minSpeed)) + // Linear acceleration
-                        m_stackSpeedFactor * m_normalizeBaseVector; // stack
 
             /*** APPLY FORCE ***/
             m_CollisionFlags = m_CharacterController.Move(moveVector);  
-           
-            /*** SET VARIABLE FROM THE PAST ***/
-            m_previousMoveDir = m_MoveDir;
-            m_previousNormaliedBaseVector = m_normalizeBaseVector;
-            m_previousMoveVector = moveVector;
+
+            /*** SAVE VECTOR FOR FUTURE FRAMES ***/
+            m_previousTimeNormaliedBaseVector = m_timeNormalizedBaseVector;
 
             m_MouseLook.UpdateCursorLock();
         }
