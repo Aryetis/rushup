@@ -101,6 +101,9 @@ namespace UnityStandardAssets.Characters.FirstPerson
                 playerState = PlayerState.running;
             }
 
+            if (m_PreviouslyGrounded && !m_CharacterController.isGrounded && playerState != PlayerState.jumping) // eg : player fell off a cliff
+                startJump();
+
             m_PreviouslyGrounded = m_CharacterController.isGrounded;
 
             /****** DEBUG DEV ZONE aka CHEAT ZONE******/
@@ -142,9 +145,9 @@ namespace UnityStandardAssets.Characters.FirstPerson
                 m_Input.Normalize();
             
             // always move along the camera forward as it is the direction that it being aimed at
-            Vector3 desiredMove = transform.forward * m_Input.y + transform.right * m_Input.x;
+            Vector3 m_desiredMove = transform.forward * m_Input.y + transform.right * m_Input.x;
 
-            Vector3 moveVector = new Vector3();
+            Vector3 m_moveVector = new Vector3();
             Vector3 m_timeNormalizedBaseVector = new Vector3();
             Debug.Log("playerState : " + playerState);
             switch (playerState)
@@ -156,22 +159,22 @@ namespace UnityStandardAssets.Characters.FirstPerson
                     RaycastHit hitInfoDown;
                     Physics.SphereCast (transform.position, m_CharacterController.radius, Vector3.down, out hitInfoDown,
                         m_CharacterController.height / 2f, Physics.AllLayers, QueryTriggerInteraction.Ignore);
-                    desiredMove = Vector3.ProjectOnPlane (desiredMove, hitInfoDown.normal).normalized;
+                    m_desiredMove = Vector3.ProjectOnPlane (m_desiredMove, hitInfoDown.normal).normalized;
 
                     // x & z defined, let's define y
                     if(m_JumpRequest)
                     {
-                        desiredMove.y += m_jumpStrength; // Give impulse to the player, tweak to take into account speed, max speed jump must be 1.5*m_jumpStrength
+                        m_desiredMove.y += m_jumpStrength; // Give impulse to the player, tweak to take into account speed, max speed jump must be 1.5*m_jumpStrength
                         startJump();
                     }
                     else 
-                        desiredMove.y -= m_StickToGroundForce;
+                        m_desiredMove.y -= m_StickToGroundForce;
 
                     /*** UPDATE ACCELERATION ***/
                     //TODO modify m_speedPorcentage : add support for first decelerating m_stackBonus shenanigans
                     if(accelerating)
                     {
-                        m_timeNormalizedBaseVector = desiredMove * Time.fixedDeltaTime;  // <=> "time normalized" direction vector 
+                        m_timeNormalizedBaseVector = m_desiredMove * Time.fixedDeltaTime;  // <=> "time normalized" direction vector 
                         m_speedPorcentage += m_runAccelerationFactor * Time.fixedDeltaTime;
                         if (m_speedPorcentage > 100)
                             m_speedPorcentage = 100;
@@ -183,13 +186,13 @@ namespace UnityStandardAssets.Characters.FirstPerson
                         if(m_speedPorcentage < 0)
                         {
                             m_speedPorcentage = 0;
-                            moveVector.Set(0,0,0);
+                            m_moveVector.Set(0,0,m_moveVector.z);
                             break;
                         }
                     }
 
                     /*** DEFINE moveVector ***/
-                    moveVector = m_minSpeed * m_timeNormalizedBaseVector + // Minimal speed
+                    m_moveVector = m_minSpeed * m_timeNormalizedBaseVector + // Minimal speed
                         ((m_speedPorcentage * (m_timeNormalizedBaseVector) / 100) * (m_maxNominalSpeed - m_minSpeed)) + // Linear acceleration
                         m_stackSpeedFactor * m_timeNormalizedBaseVector; // stack
 
@@ -201,11 +204,11 @@ namespace UnityStandardAssets.Characters.FirstPerson
                     RaycastHit hitInfoUp;
                     if ( Physics.SphereCast (transform.position, m_CharacterController.radius, Vector3.up, out hitInfoUp,
                         m_CharacterController.height / 2f, Physics.AllLayers, QueryTriggerInteraction.Ignore) ) // player hit its head during a jump     
-                        moveVector.y=0;
+                        m_moveVector.y=0;
 
-                    moveVector.x = m_previousMoveDir.x;
-                    moveVector.y += Physics.gravity.y * m_GravityMultiplier * Time.fixedDeltaTime;
-                    moveVector.z = m_previousMoveDir.z;
+                    m_moveVector.x = m_previousMoveVector.x;
+                    m_moveVector.y += Physics.gravity.y * m_GravityMultiplier * Time.fixedDeltaTime;
+                    m_moveVector.z = m_previousMoveVector.z;
                     break;
                 }
 
@@ -221,10 +224,11 @@ namespace UnityStandardAssets.Characters.FirstPerson
             }
 
             /*** APPLY FORCE ***/
-            m_CollisionFlags = m_CharacterController.Move(moveVector);  
+            m_CollisionFlags = m_CharacterController.Move(m_moveVector);  
 
             /*** SAVE VECTOR FOR FUTURE FRAMES ***/
             m_previousTimeNormaliedBaseVector = m_timeNormalizedBaseVector;
+            m_previousMoveVector = m_moveVector;
 
             m_MouseLook.UpdateCursorLock();
         }
