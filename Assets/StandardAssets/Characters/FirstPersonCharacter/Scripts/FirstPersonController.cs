@@ -1,3 +1,17 @@
+/**
+ * I may have completly broke the original assets, oops..... We don't need it anyways 
+ * Reimport it if necessary you fools
+ * 
+ * @Aryetis
+ **/
+
+
+
+
+
+
+
+
 using System;
 using UnityEngine;
 using UnityStandardAssets.CrossPlatformInput;
@@ -59,9 +73,12 @@ namespace UnityStandardAssets.Characters.FirstPerson
         [SerializeField] private float m_stackSpeedBonus;            // Each monster killed make player goes faster by m_stackSpeedBonus m/s
         private PlayerState playerState = PlayerState.jumping;
         private UnityEngine.UI.Text m_SpeedOMeterText;       // Text printed on the UI containing speed informations
+        private UnityEngine.UI.Text m_DebugZoneText;       // Text printed on the UI containing speed informations
         private Vector3 m_previousTimeNormaliedBaseVector;       //
         private Vector3 m_previousMoveVector;                //
         private Vector3 m_previousMoveDir;
+        private Vector3 m_previousPosition;
+        private float m_previousSpeed;
         // Speed value is split as the following : speed = m_minSpeed + m_speedporcentage*normalizedSpeedVector + m_stackSpeedFactor*m_stackSpeedBonus
         private float m_stackSpeedFactor; // factor of bonus speed stack
         private float m_speedPorcentage;  // factor of vanilla speed 
@@ -79,6 +96,7 @@ namespace UnityStandardAssets.Characters.FirstPerson
             m_AudioSource = GetComponent<AudioSource>();
 			m_MouseLook.Init(transform , m_Camera.transform);
             m_SpeedOMeterText = GameObject.Find ("SpeedOMeter").GetComponent<UnityEngine.UI.Text>();
+            m_DebugZoneText = GameObject.Find ("DebugZone").GetComponent<UnityEngine.UI.Text>();
         }
 
         // Update is called once per frame
@@ -131,6 +149,8 @@ namespace UnityStandardAssets.Characters.FirstPerson
                                             m_CharacterController.velocity.z * m_CharacterController.velocity.z);
             // Actualize SpeedOMeter UI text
             m_SpeedOMeterText.text = speed + "m/s";
+m_DebugZoneText.text = "m_speedPorcentage : " + m_speedPorcentage;
+
 
             /*** DEDUCT DESIRED DIRECTION FROM INPUTS ***/
             // Read input
@@ -172,7 +192,7 @@ namespace UnityStandardAssets.Characters.FirstPerson
 
                     /*** UPDATE ACCELERATION ***/
                     //TODO modify m_speedPorcentage : add support for first decelerating m_stackBonus shenanigans
-                    if(accelerating)
+                    if(accelerating && speed>=m_previousSpeed) // double check with speed>=m_previousSpeed in case player is "accelerating" facing a wall
                     {
                         m_timeNormalizedBaseVector = m_desiredMove * Time.fixedDeltaTime;  // <=> "time normalized" direction vector 
                         m_speedPorcentage += m_runAccelerationFactor * Time.fixedDeltaTime;
@@ -229,6 +249,8 @@ namespace UnityStandardAssets.Characters.FirstPerson
             /*** SAVE VECTOR FOR FUTURE FRAMES ***/
             m_previousTimeNormaliedBaseVector = m_timeNormalizedBaseVector;
             m_previousMoveVector = m_moveVector;
+            m_previousPosition = m_CharacterController.transform.position;
+            m_previousSpeed = speed;
 
             m_MouseLook.UpdateCursorLock();
         }
