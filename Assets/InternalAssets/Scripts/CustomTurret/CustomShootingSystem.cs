@@ -15,10 +15,12 @@ public class CustomShootingSystem : ShootingSystem
     [Header("Projectile")]
     [Tooltip("Prefab to be used as ammo")]
     [SerializeField]
-    private GameObject projectile;
+    private GameObject _projectile;
 
     [SerializeField]
     private Transform _spawner;
+    [SerializeField]
+    private int _shootingForce;
 
     //Get the component
     void Start()
@@ -42,9 +44,9 @@ public class CustomShootingSystem : ShootingSystem
             time = 0;
             controller._Audio.Play_Fire();
 
-            GameObject bullet = Instantiate(projectile, _spawner.position, Quaternion.identity);
+            GameObject bullet = Instantiate(_projectile, _spawner.position, Quaternion.identity);
             bullet.GetComponent<Rigidbody>().transform.Rotate(0, 0, 90);
-            bullet.GetComponent<Rigidbody>().AddForce(_spawner.transform.forward * 1800);
+            bullet.GetComponent<Rigidbody>().AddForce(_spawner.transform.forward * _shootingForce);
         }
     }
 }
