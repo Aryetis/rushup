@@ -3,6 +3,11 @@ using UnityStandardAssets.Characters.FirstPerson; // only for MouseLook
 using UnityStandardAssets.CrossPlatformInput;
 using UnityEngine;
 
+/* TODO list :
+ *      allow player to accelerate going in reverse ?
+ * 
+ */
+
 public class parkourFPSController : MonoBehaviour
 {
     private enum PlayerState {running, jumping, walling, sliding, edging, pushing};
@@ -39,6 +44,13 @@ public class parkourFPSController : MonoBehaviour
                                                         // ( https://forum.unity.com/threads/charactercontroller-isgrounded-returning-unreliable-state.494786/ ) 
     private float horizontalSpeed;
 
+    private float inputHorizontal;
+    private float inputVertical;
+    private float prevInputHorizontal;
+    private float prevInputVertical;
+    private bool inputJump;
+    private bool inputSlide;
+
 
 
 
@@ -71,7 +83,11 @@ public class parkourFPSController : MonoBehaviour
 	// Update is called once per frame
 	void Update ()
     {
-//TODO : split input and physic handling for better performances ?
+        /*** CAPTURING INPUTS ***/
+        //TODO this section to fixedUpdate to be sure we're not missing any inputs in case of lag
+        inputHorizontal = CrossPlatformInputManager.GetAxis("Horizontal"); 
+        inputVertical = CrossPlatformInputManager.GetAxis("Vertical");
+        inputJump = CrossPlatformInputManager.GetButton("Jump");
 
         /*** UPDATING UI ***/
         updateUI();
@@ -124,6 +140,8 @@ public class parkourFPSController : MonoBehaviour
         /*** CONSERVING DATA FOR FUTURE REFERENCES ***/
         prevMoveDir = moveDir;
         prevGroundedState = controller.isGrounded;
+        prevInputHorizontal = inputHorizontal;
+        prevInputVertical = inputVertical;
 
         /*** LOCK mouseLook TO PREVENT UNWANTED INPUTS ***/
         mouseLook.UpdateCursorLock();
@@ -144,16 +162,34 @@ public class parkourFPSController : MonoBehaviour
         // Update Camera look and freedom according to playerState
         updateCamera();
          
+        Debug.Log("moveDir : " + moveDir);
+
         if(grounded)
         {
             // Make sure that our state is set (in case of falling of a clif => no jump but still been airborne for a while)
             playerState = PlayerState.running;
 
+            // get direction Vector3 from input
+            moveDir = new Vector3(inputHorizontal, 0f, inputVertical);
+            moveDir = transform.TransformDirection(moveDir); // Align moveDir vector with localTransform/camera forward vector
+            moveDir.Normalize();
+
+            // Correct moveDir according to the floor's slant
+            RaycastHit hitInfoDown;
+            if(Physics.SphereCast(transform.position, controller.radius, Vector3.down, out hitInfoDown,
+               controller.height / 2f, Physics.AllLayers, QueryTriggerInteraction.Ignore))
+            {
+                moveDir = Vector3.ProjectOnPlane(moveDir, hitInfoDown.normal).normalized;
+            }
+
             // Build up the "momementum" as long as player is pressing "forward"
-            forwardKeyDown = (CrossPlatformInputManager.GetAxis("Vertical")>0 || CrossPlatformInputManager.GetAxis("Horizontal")!=0) ? true : false;
+            // WARNING : place after slant correction phase because it uses moveDir to determine wheter the player is insta changing direction
+            //           so it can build his momentum or not
+            forwardKeyDown = (inputHorizontal>0 || inputVertical!=0) ? true : false;
             if (forwardKeyDown && forwardKeyDownTime <= runninRampUpTime)
             {
                 //TODO add conditiion to check that we're going in the same direction 
+                // TODO USE inputHorizontalVertical and prevInputs to check that /\
                 forwardKeyDownTime += Time.deltaTime; // build up "temporal"    momentum 
                 if (forwardKeyDownTime > runninRampUpTime)  // till we reach rampUpTime
                 {
@@ -167,19 +203,6 @@ public class parkourFPSController : MonoBehaviour
                 {
                     forwardKeyDownTime = 0;
                 }
-            }
-
-            // get direction Vector3 from input
-            moveDir = new Vector3(CrossPlatformInputManager.GetAxis("Horizontal"), 0f, CrossPlatformInputManager.GetAxis("Vertical"));
-            moveDir = transform.TransformDirection(moveDir); // Align moveDir vector with localTransform/camera forward vector
-            moveDir.Normalize();
-
-            // Correct moveDir according to the floor's slant
-            RaycastHit hitInfoDown;
-            if(Physics.SphereCast(transform.position, controller.radius, Vector3.down, out hitInfoDown,
-               controller.height / 2f, Physics.AllLayers, QueryTriggerInteraction.Ignore))
-            {
-                moveDir = Vector3.ProjectOnPlane(moveDir, hitInfoDown.normal).normalized;
             }
 
             // Compute moveDir according to minSpeed, maxNominalSpeed, deltaTime, killStackSpeed, etc
@@ -210,7 +233,7 @@ public class parkourFPSController : MonoBehaviour
             }    
 
             // Jump Requested 
-            if(CrossPlatformInputManager.GetButton("Jump"))
+            if(inputJump)
             {   
                 playerState = PlayerState.jumping;
                 moveDir.y = jumpStrength; // TODO : tweak it so a jump at maxSpeed is 1,5* a basic one 
