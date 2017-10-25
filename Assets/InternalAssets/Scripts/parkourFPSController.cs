@@ -230,18 +230,17 @@ public class parkourFPSController : MonoBehaviour
         // Update Camera look and freedom according to playerState
         updateCamera();
 
-
-
-
-
-        //TODO 
-
-        // DEBUG for running
-        if(grounded)
+        if(grounded) // hitting the ground
         {
             playerState = PlayerState.running;
             return;
         }
+
+        // Check that player isn't bashing its head on the ceiling
+        RaycastHit hit;
+        if ( Physics.SphereCast (transform.position, controller.radius, Vector3.up, out hit,
+            controller.height / 2f, Physics.AllLayers, QueryTriggerInteraction.Ignore) ) // player hit its head during a jump     
+            moveDir.y=0;
 
         // Applying gravity
         moveDir.y -= gravity * Time.deltaTime;
