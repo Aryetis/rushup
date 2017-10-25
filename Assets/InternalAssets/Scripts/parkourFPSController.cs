@@ -153,6 +153,7 @@ public class parkourFPSController : MonoBehaviour
             forwardKeyDown = (CrossPlatformInputManager.GetAxis("Vertical")>0 || CrossPlatformInputManager.GetAxis("Horizontal")!=0) ? true : false;
             if (forwardKeyDown && forwardKeyDownTime <= runninRampUpTime)
             {
+                //TODO add conditiion to check that we're going in the same direction 
                 forwardKeyDownTime += Time.deltaTime; // build up "temporal"    momentum 
                 if (forwardKeyDownTime > runninRampUpTime)  // till we reach rampUpTime
                 {
