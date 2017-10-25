@@ -14,8 +14,8 @@ public class parkourFPSController : MonoBehaviour
     [SerializeField] private float jumpStrength = 20f;                          // Impulse given at the start of a jump
     [SerializeField] private float minSpeed = 10f;                              // Player will start running at this speed
     [SerializeField] private float maxNominalSpeed = 100f;                      // Player's max speed without any killSpeedBonus
-    [SerializeField] private float rampUpTime = 3.0f;                           // Time for player to reach maxNominalSpeed (in seconds)
-    [SerializeField] private float runningDeceleration = 5f;                   // Factor applied to player's velocity whenever player was running and is letting go of inputs 
+    [SerializeField] private float runninRampUpTime = 3.0f;                     // Time for player to reach maxNominalSpeed (in seconds)
+    [SerializeField] private float runningDeceleration = 5f;                    // Factor applied to player's velocity whenever player was running and is letting go of inputs 
     [SerializeField] private float killSpeedBonus = 5f;                         // Speed boost given immediately for each ennemy killed
     [SerializeField] private float slopeClimbingPermissionStep = 0.25f;         // Speed boost given immediately for each ennemy killed
     [Space(10)]
@@ -144,32 +144,33 @@ public class parkourFPSController : MonoBehaviour
         // Update Camera look and freedom according to playerState
         updateCamera();
          
-        // Build up the "momementum" as long as player is pressing "forward"
-        forwardKeyDown = (CrossPlatformInputManager.GetAxis("Vertical")>0) ? true : false;
-        if(forwardKeyDown && forwardKeyDownTime <= rampUpTime)
-        {
-            forwardKeyDownTime += Time.deltaTime; // build up "temporal"    momentum 
-            if (forwardKeyDownTime > rampUpTime)  // till we reach rampUpTime
-            {
-                forwardKeyDownTime = rampUpTime;
-            }
-        }
-
         if(grounded)
         {
             // Make sure that our state is set (in case of falling of a clif => no jump but still been airborne for a while)
             playerState = PlayerState.running;
 
-            // If Player is letting go of the "forward" key, stop accelerating
-            forwardKeyDown = (CrossPlatformInputManager.GetAxis("Vertical")>0) ? true : false;
-            if(!forwardKeyDown)
+            // Build up the "momementum" as long as player is pressing "forward"
+            forwardKeyDown = (CrossPlatformInputManager.GetAxis("Vertical")>0 || CrossPlatformInputManager.GetAxis("Horizontal")!=0) ? true : false;
+            if (forwardKeyDown && forwardKeyDownTime <= runninRampUpTime)
             {
-                forwardKeyDownTime = 0f;
+                forwardKeyDownTime += Time.deltaTime; // build up "temporal"    momentum 
+                if (forwardKeyDownTime > runninRampUpTime)  // till we reach rampUpTime
+                {
+                    forwardKeyDownTime = runninRampUpTime;
+                }
+            }
+            else // If Player is letting go of the "forward" key, reduce "momentum"
+            {
+                forwardKeyDownTime -= Time.deltaTime;
+                if (forwardKeyDownTime < 0)
+                {
+                    forwardKeyDownTime = 0;
+                }
             }
 
             // get direction Vector3 from input
             moveDir = new Vector3(CrossPlatformInputManager.GetAxis("Horizontal"), 0f, CrossPlatformInputManager.GetAxis("Vertical"));
-            moveDir = transform.TransformDirection(moveDir);
+            moveDir = transform.TransformDirection(moveDir); // Align moveDir vector with localTransform/camera forward vector
             moveDir.Normalize();
 
             // Correct moveDir according to the floor's slant
@@ -181,7 +182,7 @@ public class parkourFPSController : MonoBehaviour
             }
 
             // Compute moveDir according to minSpeed, maxNominalSpeed, deltaTime, killStackSpeed, etc
-            moveDir *= minSpeed + ((maxNominalSpeed-minSpeed) * (forwardKeyDownTime / rampUpTime)); 
+            moveDir *= minSpeed + ((maxNominalSpeed-minSpeed) * (forwardKeyDownTime / runninRampUpTime)); 
 
             // Take care of Deceleration, WARNING : place after the input compute phase as 
             // the deceleration process can override inputs value and modify moveDir based upon prevMoveDir
@@ -241,6 +242,11 @@ public class parkourFPSController : MonoBehaviour
         if ( Physics.SphereCast (transform.position, controller.radius, Vector3.up, out hit,
             controller.height / 2f, Physics.AllLayers, QueryTriggerInteraction.Ignore) ) // player hit its head during a jump     
             moveDir.y=0;
+
+        // get direction Vector3 from input
+//        moveDir = new Vector3(CrossPlatformInputManager.GetAxis("Horizontal"), 0f, CrossPlatformInputManager.GetAxis("Vertical"));
+//        moveDir = transform.TransformDirection(moveDir) + prevMoveDir;
+//        moveDir.Normalize();
 
         // Applying gravity
         moveDir.y -= gravity * Time.deltaTime;
