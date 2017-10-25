@@ -85,8 +85,8 @@ public class parkourFPSController : MonoBehaviour
     {
         /*** CAPTURING INPUTS ***/
         //TODO this section to fixedUpdate to be sure we're not missing any inputs in case of lag
-        inputHorizontal = CrossPlatformInputManager.GetAxisRaw("Horizontal"); 
-        inputVertical = CrossPlatformInputManager.GetAxisRaw("Vertical");
+        inputHorizontal = CrossPlatformInputManager.GetAxis("Horizontal"); 
+        inputVertical = CrossPlatformInputManager.GetAxis("Vertical");
         inputJump = CrossPlatformInputManager.GetButton("Jump");
 
         /*** UPDATING UI ***/
@@ -183,9 +183,8 @@ public class parkourFPSController : MonoBehaviour
             // Build up the "momementum" as long as player is pressing "forward"
             // WARNING : place after slant correction phase because it uses moveDir to determine wheter the player is insta changing direction
             //           so it can build his momentum or not
-            moving = (inputHorizontal!=0 || inputVertical>0) ? true : false;
+            moving = (inputHorizontal!=0 || inputVertical!=0) ? true : false;
             if (moving && momentum <= runninRampUpTime)
-//            if (momentum <= runninRampUpTime)
             {
                 //TODO add conditiion to check that we're going in the same direction 
                 // TODO USE inputHorizontalVertical and prevInputs to check that /\
@@ -194,55 +193,26 @@ public class parkourFPSController : MonoBehaviour
                 {
                     momentum = runninRampUpTime;
                 }
-                // Compute moveDir according to minSpeed, maxNominalSpeed, deltaTime, killStackSpeed, etc
-                moveDir *= minSpeed + ((maxNominalSpeed-minSpeed) * (momentum / runninRampUpTime)); 
-
             }
             else // If Player is letting go of the "forward" key, reduce "momentum"
             {
-                Debug.Log("forcing");
                 momentum -= runningInertiaFactor*Time.deltaTime;
                 if (momentum < 0)
                 {
                     momentum = 0;
                 }
-
-                // Compute moveDir according to minSpeed, maxNominalSpeed, deltaTime, killStackSpeed, etc
-                moveDir = prevMoveDir * (momentum / runninRampUpTime); 
             }
 
-//            // Applying inertia 
-//            moveDir = runningInertiaFactor*moveDir;
-//            moveDir += (1-runningInertiaFactor)*prevMoveDir;
-
-            // Take care of Deceleration, WARNING : place after the input compute phase as 
-            // the deceleration process can override inputs value and modify moveDir based upon prevMoveDir
-            // TODO : maybe split this section with a if(inputs) then ... would help visibility probably
-//            if (inputHorizontal == 0 && inputVertical == 0) // <=> if no inputs
-//            {
-//                if (speed <= minSpeed + 0.01) // if player is approching the minSpeed, stop him
-//                {
-//                    moveDir.x = 0;
-//                    moveDir.z = 0;
-//                }
-//                else // player is decelerating 
-//                {
-//                    if (prevMoveDir.x != 0)
-//                    {
-//                        Debug.Log("coucou");
-//                        moveDir.x = ApplyDeceleration(prevMoveDir.x, runningFriction);
-//                    }
-//
-//                    if (prevMoveDir.z != 0)
-//                    {
-//                        moveDir.z = ApplyDeceleration(prevMoveDir.z, runningFriction);
-//                    }
-//                }
-//            }    
-
-//            Debug.Log("------------------------------");
-//            Debug.Log("moving : " + moving);
-//            Debug.Log("inputVertical : " + inputVertical);
+            // Compute moveDir according to minSpeed, maxNominalSpeed, deltaTime, killStackSpeed, etc
+            Vector3 bar = moveDir;
+            moveDir *= minSpeed + ((maxNominalSpeed-minSpeed) * (momentum / runninRampUpTime));
+            Vector3 foo = moveDir;
+            if (speed <= 0.5 )
+                moveDir = bar*minSpeed;
+            if (!moving && speed <= minSpeed)
+                moveDir = Vector3.zero;
+            else
+                moveDir = foo * 0.1f + prevMoveDir * 0.9f;
 
             // Jump Requested 
             if(inputJump)
@@ -345,22 +315,4 @@ public class parkourFPSController : MonoBehaviour
 //        m_DebugZoneText.text = "m_speedPorcentage : " + m_speedPorcentage;
     }
 
-
-
-//    float ApplyDeceleration(float lastVelocity, float decelerationFactor)
-//    {
-//        if (lastVelocity > 0)
-//        {
-//            lastVelocity -= decelerationFactor * Time.deltaTime;
-//            if (lastVelocity < 0)
-//                lastVelocity = 0;
-//        }
-//        else
-//        {
-//            lastVelocity += decelerationFactor * Time.deltaTime;
-//            if (lastVelocity > 0)
-//                lastVelocity = 0;
-//        }
-//        return lastVelocity;
-//    }
 }
