@@ -20,7 +20,7 @@ public class parkourFPSController : MonoBehaviour
     [SerializeField] private float minSpeed = 10f;                              // Player will start running at this speed
     [SerializeField] private float maxNominalSpeed = 100f;                      // Player's max speed without any killSpeedBonus
     [SerializeField] private float runninRampUpTime = 3.0f;                     // Time for player to reach maxNominalSpeed (in seconds)
-    [SerializeField] private float runningDeceleration = 5f;                    // Factor applied to player's velocity whenever player was running and is letting go of inputs 
+    [SerializeField] private float runningInertiaFactor = 0.5f;                  
     [SerializeField] private float killSpeedBonus = 5f;                         // Speed boost given immediately for each ennemy killed
     [SerializeField] private float slopeClimbingPermissionStep = 0.25f;         // Speed boost given immediately for each ennemy killed
     [Space(10)]
@@ -34,15 +34,15 @@ public class parkourFPSController : MonoBehaviour
     private CharacterController controller;
     private PlayerState playerState = PlayerState.running;
     private Vector3 moveDir=Vector3.zero, prevMoveDir=Vector3.zero;
-    private bool forwardKeyDown, prevGroundedState;
+    private bool moving, prevGroundedState;
     private UnityEngine.UI.Text m_SpeedOMeterText;       // Text printed on the UI containing speed informations
     private UnityEngine.UI.Text m_DebugZoneText;         // Text printed on the UI containing speed informations
-    private float forwardKeyDownTime = 0f;
+    private float momentum = 0f;
     private float gravityFactor = 1f;                    // gravity doesn't always impact the player the same way (eg : during a wallrun)
     private bool grounded;                              // Not using controller.isGrounded value because result is based on the PREVIOUS MOVE state
                                                         // Resulting in unreliable state when running up on slanted floors
                                                         // ( https://forum.unity.com/threads/charactercontroller-isgrounded-returning-unreliable-state.494786/ ) 
-    private float horizontalSpeed;
+    private float speed;
 
     private float inputHorizontal;
     private float inputVertical;
@@ -85,9 +85,8 @@ public class parkourFPSController : MonoBehaviour
     {
         /*** CAPTURING INPUTS ***/
         //TODO this section to fixedUpdate to be sure we're not missing any inputs in case of lag
-        inputHorizontal = CrossPlatformInputManager.GetAxis("Horizontal"); 
-Debug.Log("inputHorizontal : " + inputHorizontal);
-        inputVertical = CrossPlatformInputManager.GetAxis("Vertical");
+        inputHorizontal = CrossPlatformInputManager.GetAxisRaw("Horizontal"); 
+        inputVertical = CrossPlatformInputManager.GetAxisRaw("Vertical");
         inputJump = CrossPlatformInputManager.GetButton("Jump");
 
         /*** UPDATING UI ***/
@@ -172,7 +171,7 @@ Debug.Log("inputHorizontal : " + inputHorizontal);
             moveDir = new Vector3(inputHorizontal, 0f, inputVertical);
             moveDir = transform.TransformDirection(moveDir); // Align moveDir vector with localTransform/camera forward vector
             moveDir.Normalize();
-
+           
             // Correct moveDir according to the floor's slant
             RaycastHit hitInfoDown;
             if(Physics.SphereCast(transform.position, controller.radius, Vector3.down, out hitInfoDown,
@@ -184,53 +183,66 @@ Debug.Log("inputHorizontal : " + inputHorizontal);
             // Build up the "momementum" as long as player is pressing "forward"
             // WARNING : place after slant correction phase because it uses moveDir to determine wheter the player is insta changing direction
             //           so it can build his momentum or not
-            forwardKeyDown = (inputHorizontal>0 || inputVertical!=0) ? true : false;
-            if (forwardKeyDown && forwardKeyDownTime <= runninRampUpTime)
+            moving = (inputHorizontal!=0 || inputVertical>0) ? true : false;
+            if (moving && momentum <= runninRampUpTime)
+//            if (momentum <= runninRampUpTime)
             {
-                
                 //TODO add conditiion to check that we're going in the same direction 
                 // TODO USE inputHorizontalVertical and prevInputs to check that /\
-                forwardKeyDownTime += Time.deltaTime; // build up "temporal"    momentum 
-                if (forwardKeyDownTime > runninRampUpTime)  // till we reach rampUpTime
+                momentum += Time.deltaTime; // build up "temporal" momentum 
+                if (momentum > runninRampUpTime)  // till we reach rampUpTime
                 {
-                    forwardKeyDownTime = runninRampUpTime;
+                    momentum = runninRampUpTime;
                 }
+                // Compute moveDir according to minSpeed, maxNominalSpeed, deltaTime, killStackSpeed, etc
+                moveDir *= minSpeed + ((maxNominalSpeed-minSpeed) * (momentum / runninRampUpTime)); 
+
             }
             else // If Player is letting go of the "forward" key, reduce "momentum"
             {
-                forwardKeyDownTime -= Time.deltaTime;
-                if (forwardKeyDownTime < 0)
+                Debug.Log("forcing");
+                momentum -= runningInertiaFactor*Time.deltaTime;
+                if (momentum < 0)
                 {
-                    forwardKeyDownTime = 0;
+                    momentum = 0;
                 }
+
+                // Compute moveDir according to minSpeed, maxNominalSpeed, deltaTime, killStackSpeed, etc
+                moveDir = prevMoveDir * (momentum / runninRampUpTime); 
             }
 
-            // Compute moveDir according to minSpeed, maxNominalSpeed, deltaTime, killStackSpeed, etc
-            moveDir *= minSpeed + ((maxNominalSpeed-minSpeed) * (forwardKeyDownTime / runninRampUpTime)); 
+//            // Applying inertia 
+//            moveDir = runningInertiaFactor*moveDir;
+//            moveDir += (1-runningInertiaFactor)*prevMoveDir;
 
             // Take care of Deceleration, WARNING : place after the input compute phase as 
             // the deceleration process can override inputs value and modify moveDir based upon prevMoveDir
             // TODO : maybe split this section with a if(inputs) then ... would help visibility probably
-            if (moveDir == Vector3.zero ) // <=> if no inputs
-            {
-                if (horizontalSpeed <= minSpeed + 0.01) // if player is approching the minSpeed, stop him
-                {
-                    moveDir.x = 0;
-                    moveDir.z = 0;
-                }
-                else // player is decelerating 
-                {
-                    if (prevMoveDir.x != 0)
-                    {
-                        moveDir.x = ApplyDeceleration(prevMoveDir.x, runningDeceleration);
-                    }
+//            if (inputHorizontal == 0 && inputVertical == 0) // <=> if no inputs
+//            {
+//                if (speed <= minSpeed + 0.01) // if player is approching the minSpeed, stop him
+//                {
+//                    moveDir.x = 0;
+//                    moveDir.z = 0;
+//                }
+//                else // player is decelerating 
+//                {
+//                    if (prevMoveDir.x != 0)
+//                    {
+//                        Debug.Log("coucou");
+//                        moveDir.x = ApplyDeceleration(prevMoveDir.x, runningFriction);
+//                    }
+//
+//                    if (prevMoveDir.z != 0)
+//                    {
+//                        moveDir.z = ApplyDeceleration(prevMoveDir.z, runningFriction);
+//                    }
+//                }
+//            }    
 
-                    if (prevMoveDir.z != 0)
-                    {
-                        moveDir.z = ApplyDeceleration(prevMoveDir.z, runningDeceleration);
-                    }
-                }
-            }    
+//            Debug.Log("------------------------------");
+//            Debug.Log("moving : " + moving);
+//            Debug.Log("inputVertical : " + inputVertical);
 
             // Jump Requested 
             if(inputJump)
@@ -326,29 +338,29 @@ Debug.Log("inputHorizontal : " + inputHorizontal);
 
     void updateUI()
     {
-        horizontalSpeed = (float) Mathf.Sqrt(controller.velocity.x * controller.velocity.x +
+        speed = (float) Mathf.Sqrt(controller.velocity.x * controller.velocity.x +
                                          controller.velocity.z * controller.velocity.z);
         // Actualize SpeedOMeter UI text
-        m_SpeedOMeterText.text = horizontalSpeed + "m/s";
+        m_SpeedOMeterText.text = speed + "m/s";
 //        m_DebugZoneText.text = "m_speedPorcentage : " + m_speedPorcentage;
     }
 
 
 
-    float ApplyDeceleration(float lastVelocity, float decelerationFactor)
-    {
-        if (lastVelocity > 0)
-        {
-            lastVelocity -= decelerationFactor * Time.deltaTime;
-            if (lastVelocity < 0)
-                lastVelocity = 0;
-        }
-        else
-        {
-            lastVelocity += decelerationFactor * Time.deltaTime;
-            if (lastVelocity > 0)
-                lastVelocity = 0;
-        }
-        return lastVelocity;
-    }
+//    float ApplyDeceleration(float lastVelocity, float decelerationFactor)
+//    {
+//        if (lastVelocity > 0)
+//        {
+//            lastVelocity -= decelerationFactor * Time.deltaTime;
+//            if (lastVelocity < 0)
+//                lastVelocity = 0;
+//        }
+//        else
+//        {
+//            lastVelocity += decelerationFactor * Time.deltaTime;
+//            if (lastVelocity > 0)
+//                lastVelocity = 0;
+//        }
+//        return lastVelocity;
+//    }
 }
