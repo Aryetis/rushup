@@ -17,6 +17,7 @@ public class parkourFPSController : MonoBehaviour
     [SerializeField] private float maxNominalSpeed = 100f;  // Player's max speed without any killSpeedBonus
     [SerializeField] private float rampUpTime = 3.0f;       // Time for player to reach maxNominalSpeed (in seconds)
     [SerializeField] private float killSpeedBonus = 5f;     // Speed boost given immediately for each ennemy killed
+    [SerializeField] private float slopeClimbingPermissionStep = 0.25f;     // Speed boost given immediately for each ennemy killed
     [Space(10)]
     [Header("Acceleration/Deceleration Factors")]
     [Space(10)]
@@ -33,7 +34,7 @@ public class parkourFPSController : MonoBehaviour
     private UnityEngine.UI.Text m_DebugZoneText;         // Text printed on the UI containing speed informations
     private float forwardKeyDownTime = 0f;
     private float gravityFactor = 1f;                    // gravity doesn't always impact the player the same way (eg : during a wallrun)
-
+    private bool grounded;
 
 
 	// Use this for initialization
@@ -51,6 +52,7 @@ public class parkourFPSController : MonoBehaviour
         if(Physics.Raycast(transform.position, Vector3.down, out hit, 1000))
         {
             transform.position = new Vector3(hit.point.x, hit.point.y + controller.height, hit.point.z);
+            grounded = true;
         }
         else
         {
@@ -64,13 +66,12 @@ public class parkourFPSController : MonoBehaviour
 //TODO : split input and physic handling for better performances ?
         Debug.Log("Update() with playerState : " + playerState);
 
+        /*** UPDATING UI ***/
+        updateUI();
 
+        /*** UPDATING grounded STATE ***/
         RaycastHit hit;
-        if (Physics.Raycast(controller.transform.position, Vector3.down, out hit, (controller.height/2f)+controller.skinWidth ))
-            Debug.Log("CUSTOM GROUNDED DETECTION : TRUE");
-        else
-            Debug.Log("CUSTOM GROUNDED DETECTION : FALSE");
-
+        grounded = Physics.Raycast(controller.transform.position, Vector3.down, out hit, (controller.height / 2f) + controller.skinWidth + slopeClimbingPermissionStep);
 
         /*** CALCULATING FORCE FROM INPUTS & STATE***/ 
         switch(playerState)
@@ -110,14 +111,8 @@ public class parkourFPSController : MonoBehaviour
         }
 
 
-        /*** APPLYING FORCES && updateUI ***/
-        // !!! WARNING MUST APPLY GRAVITY LAST IN ORDER FOR Controller.isGrounded to not FREAK OUT when running upward on slanted floors !!! 
-        // as it is using the transform.position.y from the last move and compare it to the actual one
-        // As such we break down gravity force and moveDir force
-
+        /*** APPLYING moveDir FORCE ***/
         controller.Move(moveDir * Time.deltaTime);
-        updateUI(); // updateUI must be here otherwise the application of gravity will mess controller's velocity values
-        controller.Move(new Vector3(0,-gravity*gravityFactor,0) * Time.deltaTime);
 
         /*** CONSERVING DATA FOR FUTURE REFERENCES ***/
         prevMoveDir = moveDir;
@@ -149,7 +144,7 @@ public class parkourFPSController : MonoBehaviour
             }
         }
 
-        if(controller.isGrounded)
+        if(grounded)
         {
             // Make sure that our state is set (in case of falling of a clif => no jump but still been airborne for a while)
             playerState = PlayerState.running;
@@ -160,8 +155,6 @@ public class parkourFPSController : MonoBehaviour
             {
                 forwardKeyDownTime = 0f;
             }
-            else
-                Debug.Log("moving");
 
             // get direction Vector3 from input
             moveDir = new Vector3(CrossPlatformInputManager.GetAxis("Horizontal"), 0f, CrossPlatformInputManager.GetAxis("Vertical"));
@@ -177,12 +170,7 @@ public class parkourFPSController : MonoBehaviour
             }
 
             // Compute moveDir according to minSpeed, maxNominalSpeed, deltaTime, killStackSpeed, etc
-//moveDir *= minSpeed;
             moveDir *= minSpeed + ((maxNominalSpeed-minSpeed) * (forwardKeyDownTime / rampUpTime)); // MESSED UP BECAUSE FOR SOME REASON playerState is constantly changing !!!
-            Debug.Log("forwardKeyDownTime : " + forwardKeyDownTime);
-            Debug.Log("rampUpTime : " + rampUpTime); // WTF 000000 ????
-            Debug.Log("forwardKeyDownTime / rampUpTime : " + forwardKeyDownTime / rampUpTime);
-
 
 
 //            if(CrossPlatformInputManager.GetButton("Jump"))
@@ -197,6 +185,8 @@ public class parkourFPSController : MonoBehaviour
             playerState = PlayerState.jumping;
         }
 
+        // Applying gravity
+        moveDir.y -= gravity * Time.deltaTime;
     }
 
     void updateJumping()
@@ -211,14 +201,14 @@ public class parkourFPSController : MonoBehaviour
         //TODO 
 
         // DEBUG for running
-        if(controller.isGrounded)
+        if(grounded)
         {
             playerState = PlayerState.running;
             return;
         }
 
-        // Setting gravity factor
-        gravityFactor = gravity*Time.deltaTime;
+        // Applying gravity
+        moveDir.y -= gravity * Time.deltaTime;
     }
 
     void updateWalling()
@@ -226,8 +216,6 @@ public class parkourFPSController : MonoBehaviour
         // Update Camera look and freedom according to playerState
         updateCamera();
 
-        // Setting gravity factor
-        gravityFactor = 0f;
     }
 
     void updateSliding()
@@ -235,8 +223,6 @@ public class parkourFPSController : MonoBehaviour
         // Update Camera look and freedom according to playerState
         updateCamera();
 
-        // Setting gravity factor
-        gravityFactor = 1f;
     }
 
     void updateEdging()
@@ -244,8 +230,6 @@ public class parkourFPSController : MonoBehaviour
         // Update Camera look and freedom according to playerState
         updateCamera();
 
-        // Setting gravity factor
-        gravityFactor = 0f;
     }
 
     void updatePushing()
@@ -253,8 +237,6 @@ public class parkourFPSController : MonoBehaviour
         // Update Camera look and freedom according to playerState
         updateCamera();
 
-        // Setting gravity factor
-        gravityFactor = 1f;
     }
 
     void updateCamera()
