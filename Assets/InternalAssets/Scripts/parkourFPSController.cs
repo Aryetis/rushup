@@ -9,16 +9,15 @@ public class parkourFPSController : MonoBehaviour
     // Describing current state of the player : edging <=> grabed the edge of a cliff
     //                                          pushing <=> pushing up from edging state
 
-
     [Header("Global Variables")]
-    [SerializeField] private float gravity = 9.81f;             // Gravity applied to the vector on the Y axis
-    [SerializeField] private float jumpStrength = 20f;          // Impulse given at the start of a jump
-    [SerializeField] private float minSpeed = 10f;              // Player will start running at this speed
-    [SerializeField] private float maxNominalSpeed = 100f;      // Player's max speed without any killSpeedBonus
-    [SerializeField] private float rampUpTime = 3.0f;           // Time for player to reach maxNominalSpeed (in seconds)
-    [SerializeField] private float runningDeceleration = 25f;   // 
-    [SerializeField] private float killSpeedBonus = 5f;         // Speed boost given immediately for each ennemy killed
-    [SerializeField] private float slopeClimbingPermissionStep = 0.25f;     // Speed boost given immediately for each ennemy killed
+    [SerializeField] private float gravity = 9.81f;                             // Gravity applied to the vector on the Y axis
+    [SerializeField] private float jumpStrength = 20f;                          // Impulse given at the start of a jump
+    [SerializeField] private float minSpeed = 10f;                              // Player will start running at this speed
+    [SerializeField] private float maxNominalSpeed = 100f;                      // Player's max speed without any killSpeedBonus
+    [SerializeField] private float rampUpTime = 3.0f;                           // Time for player to reach maxNominalSpeed (in seconds)
+    [SerializeField] private float runningDeceleration = 5f;                   // Factor applied to player's velocity whenever player was running and is letting go of inputs 
+    [SerializeField] private float killSpeedBonus = 5f;                         // Speed boost given immediately for each ennemy killed
+    [SerializeField] private float slopeClimbingPermissionStep = 0.25f;         // Speed boost given immediately for each ennemy killed
     [Space(10)]
     [Header("Acceleration/Deceleration Factors")]
     [Space(10)]
@@ -35,7 +34,13 @@ public class parkourFPSController : MonoBehaviour
     private UnityEngine.UI.Text m_DebugZoneText;         // Text printed on the UI containing speed informations
     private float forwardKeyDownTime = 0f;
     private float gravityFactor = 1f;                    // gravity doesn't always impact the player the same way (eg : during a wallrun)
-    private bool grounded;
+    private bool grounded;                              // Not using controller.isGrounded value because result is based on the PREVIOUS MOVE state
+                                                        // Resulting in unreliable state when running up on slanted floors
+                                                        // ( https://forum.unity.com/threads/charactercontroller-isgrounded-returning-unreliable-state.494786/ ) 
+    private float horizontalSpeed;
+
+
+
 
 
 	// Use this for initialization
@@ -60,12 +65,13 @@ public class parkourFPSController : MonoBehaviour
             Debug.LogError("Please put the Player prefab above a floor/closer to it");
         }
 	}
+
+
 	
 	// Update is called once per frame
 	void Update ()
     {
 //TODO : split input and physic handling for better performances ?
-        Debug.Log("Update() with playerState : " + playerState);
 
         /*** UPDATING UI ***/
         updateUI();
@@ -123,12 +129,16 @@ public class parkourFPSController : MonoBehaviour
         mouseLook.UpdateCursorLock();
 	}
 
+
+
     // FixedUpdate is called once per physic cycle
     void FixedUpdate ()
     { 
 
     }
         
+
+
     void updateRunning()
     {
         // Update Camera look and freedom according to playerState
@@ -162,21 +172,6 @@ public class parkourFPSController : MonoBehaviour
             moveDir = transform.TransformDirection(moveDir);
             moveDir.Normalize();
 
-
-            // Take care of Deceleration
-            if ((moveDir == Vector3.zero && prevMoveDir != Vector3.zero)) // <=> if no input and not already stoped
-            {
-                if (prevMoveDir.x != 0)
-                {
-                    moveDir.x = ApplyDeceleration(prevMoveDir.x, runningDeceleration);
-                }
-
-                if (prevMoveDir.z != 0)
-                {
-                    moveDir.z = ApplyDeceleration(prevMoveDir.z, runningDeceleration);
-                }
-            }    
-
             // Correct moveDir according to the floor's slant
             RaycastHit hitInfoDown;
             if(Physics.SphereCast(transform.position, controller.radius, Vector3.down, out hitInfoDown,
@@ -186,13 +181,37 @@ public class parkourFPSController : MonoBehaviour
             }
 
             // Compute moveDir according to minSpeed, maxNominalSpeed, deltaTime, killStackSpeed, etc
-            moveDir *= minSpeed + ((maxNominalSpeed-minSpeed) * (forwardKeyDownTime / rampUpTime)); // MESSED UP BECAUSE FOR SOME REASON playerState is constantly changing !!!
+            moveDir *= minSpeed + ((maxNominalSpeed-minSpeed) * (forwardKeyDownTime / rampUpTime)); 
+
+            // Take care of Deceleration, WARNING : place after the input compute phase as 
+            // the deceleration process can override inputs value and modify moveDir based upon prevMoveDir
+            // TODO : maybe split this section with a if(inputs) then ... would help visibility probably
+            if ((moveDir == Vector3.zero)) // <=> if no inputs
+            {
+                if (horizontalSpeed <= minSpeed + 0.01) // if player is approching the minSpeed, stop him
+                {
+                    moveDir.x = 0;
+                    moveDir.z = 0;
+                }
+                else // player is decelerating 
+                {
+                    if (prevMoveDir.x != 0)
+                    {
+                        moveDir.x = ApplyDeceleration(prevMoveDir.x, runningDeceleration);
+                    }
+
+                    if (prevMoveDir.z != 0)
+                    {
+                        moveDir.z = ApplyDeceleration(prevMoveDir.z, runningDeceleration);
+                    }
+                }
+            }    
 
             // Jump Requested 
             if(CrossPlatformInputManager.GetButton("Jump"))
             {   
                 playerState = PlayerState.jumping;
-                moveDir.y = jumpStrength;
+                moveDir.y = jumpStrength; // TODO : tweak it so a jump at maxSpeed is 1,5* a basic one 
             }
         }
         else // Player is running from an edge => change state to "jumping" and override current update()'s cycle result
@@ -203,6 +222,8 @@ public class parkourFPSController : MonoBehaviour
         // Applying gravity
         moveDir.y -= gravity * Time.deltaTime;
     }
+
+
 
     void updateJumping()
     {
@@ -233,6 +254,8 @@ public class parkourFPSController : MonoBehaviour
 
     }
 
+
+
     void updateSliding()
     {
         // Update Camera look and freedom according to playerState
@@ -240,12 +263,16 @@ public class parkourFPSController : MonoBehaviour
 
     }
 
+
+
     void updateEdging()
     {
         // Update Camera look and freedom according to playerState
         updateCamera();
 
     }
+
+
 
     void updatePushing()
     {
@@ -265,15 +292,19 @@ public class parkourFPSController : MonoBehaviour
             }
         }
     }
-    
+
+
+
     void updateUI()
     {
-        float speed = (float) Mathf.Sqrt(controller.velocity.x * controller.velocity.x +
+        horizontalSpeed = (float) Mathf.Sqrt(controller.velocity.x * controller.velocity.x +
                                          controller.velocity.z * controller.velocity.z);
         // Actualize SpeedOMeter UI text
-        m_SpeedOMeterText.text = speed + "m/s";
+        m_SpeedOMeterText.text = horizontalSpeed + "m/s";
 //        m_DebugZoneText.text = "m_speedPorcentage : " + m_speedPorcentage;
     }
+
+
 
     float ApplyDeceleration(float lastVelocity, float decelerationFactor)
     {
