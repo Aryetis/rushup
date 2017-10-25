@@ -207,9 +207,12 @@ public class parkourFPSController : MonoBehaviour
             Vector3 bar = moveDir;
             moveDir *= minSpeed + ((maxNominalSpeed-minSpeed) * (momentum / runninRampUpTime));
             Vector3 foo = moveDir;
-            if (speed <= 0.5 )
-                moveDir = bar*minSpeed;
-            if (!moving && speed <= minSpeed)
+            if(speed <= 0.5)
+            {
+                Debug.Log("helloooo ?");
+                moveDir = bar * minSpeed;
+            }
+            else if (!moving && speed <= minSpeed)
                 moveDir = Vector3.zero;
             else
                 moveDir = foo * 0.1f + prevMoveDir * 0.9f;
