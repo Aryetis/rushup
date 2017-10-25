@@ -86,6 +86,7 @@ public class parkourFPSController : MonoBehaviour
         /*** CAPTURING INPUTS ***/
         //TODO this section to fixedUpdate to be sure we're not missing any inputs in case of lag
         inputHorizontal = CrossPlatformInputManager.GetAxis("Horizontal"); 
+Debug.Log("inputHorizontal : " + inputHorizontal);
         inputVertical = CrossPlatformInputManager.GetAxis("Vertical");
         inputJump = CrossPlatformInputManager.GetButton("Jump");
 
@@ -162,8 +163,6 @@ public class parkourFPSController : MonoBehaviour
         // Update Camera look and freedom according to playerState
         updateCamera();
          
-        Debug.Log("moveDir : " + moveDir);
-
         if(grounded)
         {
             // Make sure that our state is set (in case of falling of a clif => no jump but still been airborne for a while)
@@ -188,6 +187,7 @@ public class parkourFPSController : MonoBehaviour
             forwardKeyDown = (inputHorizontal>0 || inputVertical!=0) ? true : false;
             if (forwardKeyDown && forwardKeyDownTime <= runninRampUpTime)
             {
+                
                 //TODO add conditiion to check that we're going in the same direction 
                 // TODO USE inputHorizontalVertical and prevInputs to check that /\
                 forwardKeyDownTime += Time.deltaTime; // build up "temporal"    momentum 
@@ -211,7 +211,7 @@ public class parkourFPSController : MonoBehaviour
             // Take care of Deceleration, WARNING : place after the input compute phase as 
             // the deceleration process can override inputs value and modify moveDir based upon prevMoveDir
             // TODO : maybe split this section with a if(inputs) then ... would help visibility probably
-            if ((moveDir == Vector3.zero)) // <=> if no inputs
+            if (moveDir == Vector3.zero ) // <=> if no inputs
             {
                 if (horizontalSpeed <= minSpeed + 0.01) // if player is approching the minSpeed, stop him
                 {
