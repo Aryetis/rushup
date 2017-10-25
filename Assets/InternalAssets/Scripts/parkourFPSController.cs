@@ -32,6 +32,8 @@ public class parkourFPSController : MonoBehaviour
     private UnityEngine.UI.Text m_SpeedOMeterText;       // Text printed on the UI containing speed informations
     private UnityEngine.UI.Text m_DebugZoneText;         // Text printed on the UI containing speed informations
     private float forwardKeyDownTime = 0f;
+    private float gravityFactor = 1f;                    // gravity doesn't always impact the player the same way (eg : during a wallrun)
+
 
 
 	// Use this for initialization
@@ -48,22 +50,27 @@ public class parkourFPSController : MonoBehaviour
         RaycastHit hit;
         if(Physics.Raycast(transform.position, Vector3.down, out hit, 1000))
         {
-            transform.position = new Vector3(hit.point.x, hit.point.y + controller.height/2f, hit.point.z);
+            transform.position = new Vector3(hit.point.x, hit.point.y + controller.height, hit.point.z);
         }
         else
         {
-            Debug.Log("Please put the Player prefab above a floor/closer to it");
+            Debug.LogError("Please put the Player prefab above a floor/closer to it");
         }
 	}
 	
 	// Update is called once per frame
 	void Update ()
     {
-        Debug.Log("UpdateStart");
-Debug.Log("playerState : "+playerState);
-//TODO : demux input and physic handling for better performances ?
+//TODO : split input and physic handling for better performances ?
+        Debug.Log("Update() with playerState : " + playerState);
 
-        updateUI();
+
+        RaycastHit hit;
+        if (Physics.Raycast(controller.transform.position, Vector3.down, out hit, (controller.height/2f)+controller.skinWidth ))
+            Debug.Log("CUSTOM GROUNDED DETECTION : TRUE");
+        else
+            Debug.Log("CUSTOM GROUNDED DETECTION : FALSE");
+
 
         /*** CALCULATING FORCE FROM INPUTS & STATE***/ 
         switch(playerState)
@@ -102,8 +109,15 @@ Debug.Log("playerState : "+playerState);
             { break; }
         }
 
-        /*** APPLYING FORCE ***/
+
+        /*** APPLYING FORCES && updateUI ***/
+        // !!! WARNING MUST APPLY GRAVITY LAST IN ORDER FOR Controller.isGrounded to not FREAK OUT when running upward on slanted floors !!! 
+        // as it is using the transform.position.y from the last move and compare it to the actual one
+        // As such we break down gravity force and moveDir force
+
         controller.Move(moveDir * Time.deltaTime);
+        updateUI(); // updateUI must be here otherwise the application of gravity will mess controller's velocity values
+        controller.Move(new Vector3(0,-gravity*gravityFactor,0) * Time.deltaTime);
 
         /*** CONSERVING DATA FOR FUTURE REFERENCES ***/
         prevMoveDir = moveDir;
@@ -116,7 +130,7 @@ Debug.Log("playerState : "+playerState);
     // FixedUpdate is called once per physic cycle
     void FixedUpdate ()
     { 
-        Debug.Log("FixedUpdateStart");
+
     }
         
     void updateRunning()
@@ -124,15 +138,14 @@ Debug.Log("playerState : "+playerState);
         // Update Camera look and freedom according to playerState
         updateCamera();
 
-
         // Build up the "momementum" as long as player is pressing "forward"
         forwardKeyDown = (CrossPlatformInputManager.GetAxis("Vertical")>0) ? true : false;
         if(forwardKeyDown && forwardKeyDownTime <= rampUpTime)
         {
-            forwardKeyDownTime += Time.deltaTime;
-            if (forwardKeyDownTime > forwardKeyDownTime)
+            forwardKeyDownTime += Time.deltaTime; // build up "temporal"    momentum 
+            if (forwardKeyDownTime > rampUpTime)  // till we reach rampUpTime
             {
-                forwardKeyDownTime = forwardKeyDownTime;
+                forwardKeyDownTime = rampUpTime;
             }
         }
 
@@ -145,8 +158,10 @@ Debug.Log("playerState : "+playerState);
             forwardKeyDown = (CrossPlatformInputManager.GetAxis("Vertical")>0) ? true : false;
             if(!forwardKeyDown)
             {
-                rampUpTime = 0f;
+                forwardKeyDownTime = 0f;
             }
+            else
+                Debug.Log("moving");
 
             // get direction Vector3 from input
             moveDir = new Vector3(CrossPlatformInputManager.GetAxis("Horizontal"), 0f, CrossPlatformInputManager.GetAxis("Vertical"));
@@ -162,9 +177,13 @@ Debug.Log("playerState : "+playerState);
             }
 
             // Compute moveDir according to minSpeed, maxNominalSpeed, deltaTime, killStackSpeed, etc
+//moveDir *= minSpeed;
             moveDir *= minSpeed + ((maxNominalSpeed-minSpeed) * (forwardKeyDownTime / rampUpTime)); // MESSED UP BECAUSE FOR SOME REASON playerState is constantly changing !!!
-//            moveDir *= minSpeed;
-            Debug.Log("test");
+            Debug.Log("forwardKeyDownTime : " + forwardKeyDownTime);
+            Debug.Log("rampUpTime : " + rampUpTime); // WTF 000000 ????
+            Debug.Log("forwardKeyDownTime / rampUpTime : " + forwardKeyDownTime / rampUpTime);
+
+
 
 //            if(CrossPlatformInputManager.GetButton("Jump"))
 //            {   // Jump Requested 
@@ -175,12 +194,9 @@ Debug.Log("playerState : "+playerState);
         }
         else // Player is running from an edge => change state to "jumping" and override current update()'s cycle result
         {
-//            playerState = PlayerState.jumping;
+            playerState = PlayerState.jumping;
         }
 
-        //DEBUG ONLY
-
-        moveDir.y -= gravity * Time.deltaTime;
     }
 
     void updateJumping()
@@ -201,35 +217,44 @@ Debug.Log("playerState : "+playerState);
             return;
         }
 
-        moveDir.y -= gravity * Time.deltaTime;
+        // Setting gravity factor
+        gravityFactor = gravity*Time.deltaTime;
     }
 
     void updateWalling()
     {
         // Update Camera look and freedom according to playerState
         updateCamera();
-        
+
+        // Setting gravity factor
+        gravityFactor = 0f;
     }
 
     void updateSliding()
     {
         // Update Camera look and freedom according to playerState
         updateCamera();
-    
+
+        // Setting gravity factor
+        gravityFactor = 1f;
     }
 
     void updateEdging()
     {
         // Update Camera look and freedom according to playerState
         updateCamera();
-        
+
+        // Setting gravity factor
+        gravityFactor = 0f;
     }
 
     void updatePushing()
     {
         // Update Camera look and freedom according to playerState
         updateCamera();
-        
+
+        // Setting gravity factor
+        gravityFactor = 1f;
     }
 
     void updateCamera()
@@ -247,7 +272,7 @@ Debug.Log("playerState : "+playerState);
     void updateUI()
     {
         float speed = (float) Mathf.Sqrt(controller.velocity.x * controller.velocity.x +
-            controller.velocity.z * controller.velocity.z);
+                                         controller.velocity.z * controller.velocity.z);
         // Actualize SpeedOMeter UI text
         m_SpeedOMeterText.text = speed + "m/s";
 //        m_DebugZoneText.text = "m_speedPorcentage : " + m_speedPorcentage;
