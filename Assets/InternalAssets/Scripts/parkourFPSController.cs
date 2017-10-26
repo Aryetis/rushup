@@ -3,9 +3,9 @@ using UnityStandardAssets.Characters.FirstPerson; // only for MouseLook
 using UnityStandardAssets.CrossPlatformInput;
 using UnityEngine;
 
-/* TODO list :
+/* TODO (after the project is "done") list :
  *      Put different factor for walking in reverse
- * 
+ *      Rework
  */
 
 public class parkourFPSController : MonoBehaviour
@@ -26,21 +26,13 @@ public class parkourFPSController : MonoBehaviour
     [Header("Running State Variables")]
     [SerializeField] private float runningMinSpeed = 10f;                       // Player will start running at this speed
     [SerializeField] private float runningRampUpTime = 0.2f;                     // Time in seconds for player to reach maxNominalSpeed (in seconds)
-//    [SerializeField] private float runningRearMinSpeed = 5f;
-//    [SerializeField] private float runningRearMaxSpeed = 20f;
-//    [SerializeField] private float runningRearRampUpTime = 3.0f;
     [SerializeField] private float runningInertiaFactor = 0.9f;                 // [0;1] the bigger the less current input will impact the outcome / the more slippery the player wil be
     [SerializeField] private float runningDecelerationFactor = 0.5f;            // will decelerate at "runningDecelerationFactor" the speed it accelerates
     private float runningMomentum = 0f;                                         // [0;runningRampUpTime] "porcentage" of the current speed wihtout acknoledging minSpeed
 
     [Space(10)]
     [Header("Airborne State Variables")]
-    [SerializeField] private float airInertiaFactor = 0.9f;                    // [0;1] Player inputs during aircontrol will add up as time goes by with a airRampUpTime factor, so the bigger => better aircontrolbe
-    [SerializeField] private float airRampUpTime = 0.5f;                         // Time in seconds, it will airControl vector to reach its max potential
-    [SerializeField] private float airDecelerationFactor = 0.5f;               // will decelerate at "runningDecelerationFactor" the speed it accelerates
-    private float airMomentumX = 0f;
-    private float airMomentumZ = 0f;
-    private float impulseSpeed = 0f;
+    [SerializeField] private float airControlFactor = 2.0f;
     private Vector3 runningToJumpingImpulse = Vector3.zero;
     private Vector3 previousAirControlDir;
 
@@ -231,7 +223,6 @@ public class parkourFPSController : MonoBehaviour
             if(inputJump)
             {   
                 runningToJumpingImpulse = moveDir;
-                impulseSpeed = speed;
                 playerState = PlayerState.jumping;
                 moveDir.y = jumpStrength + jumpStrength*(speed/maxNominalSpeed)*(jumpHeightSpeedFactor-1); 
                 // "standard jump height" + "speed dependent height jump" * (jumpHeightSpeedFactor-1)
@@ -240,7 +231,6 @@ public class parkourFPSController : MonoBehaviour
         else // Player is running from an edge => change state to "jumping" and override current update()'s cycle result
         {
             runningToJumpingImpulse = moveDir;
-            impulseSpeed = speed;
             playerState = PlayerState.jumping;
         }
 
@@ -259,12 +249,8 @@ public class parkourFPSController : MonoBehaviour
         if(grounded) 
         {
             playerState = PlayerState.running;
-            // reset airBorne specific values
-            airMomentumX = 0f;   
-            airMomentumZ = 0f;   
-            runningToJumpingImpulse = Vector3.zero;
+            // reset airBorne specific global values
             previousAirControlDir = Vector3.zero;
-            impulseSpeed = 0;
             return;
         }
 
@@ -277,81 +263,14 @@ public class parkourFPSController : MonoBehaviour
         airControlDir = transform.TransformDirection(airControlDir);
         airControlDir.Normalize();
        
-        //Building momentums
-        // airMomentumX
-        if ( inputHorizontal <= 0 && airMomentumX <= airRampUpTime)
-        {
-            airMomentumX += Time.deltaTime; // build up "temporal" momentum 
-            if (airMomentumX > airRampUpTime)  // till we reach rampUpTime
-            {
-                airMomentumX = airRampUpTime;
-            }
-        }
-        else if (inputHorizontal >= 0 && airMomentumX <= airRampUpTime)
-        {
-            airMomentumX -= Time.deltaTime; // build up "temporal" momentum 
-            if (airMomentumX < -airRampUpTime)  // till we reach rampUpTime
-            {
-                airMomentumX = airRampUpTime;
-            }
-        }
-        else if (inputHorizontal == 0) // If Player is letting go of the "forward" key, reduce "momentum"
-        {
-            // TODO yes it will wiggle back and forth around 0
-            if (airMomentumX >= 0)
-                airMomentumX -= airDecelerationFactor*Time.deltaTime;
-            else 
-                airMomentumX += airDecelerationFactor*Time.deltaTime;
-            
-        }
-
-        // airMomentumY
-        if ( inputVertical >= 0 && airMomentumZ <= airRampUpTime)
-        {
-            airMomentumZ += Time.deltaTime; // build up "temporal" momentum 
-            if (airMomentumZ > airRampUpTime)  // till we reach rampUpTime
-            {
-                airMomentumZ = airRampUpTime;
-            }
-        }
-        else if (inputVertical <= 0 && airMomentumZ <= airRampUpTime)
-        {
-            airMomentumZ -= Time.deltaTime; // build up "temporal" momentum 
-            if (airMomentumZ < -airRampUpTime)  // till we reach rampUpTime
-            {
-                airMomentumZ = airRampUpTime;
-            }
-        }
-        else if (inputVertical == 0) // If Player is letting go of the "forward" key, reduce "momentum"
-        {
-            // TODO yes it will wiggle back and forth around 0
-            if (airMomentumZ >= 0)
-                airMomentumZ -= airDecelerationFactor*Time.deltaTime;
-            else 
-                airMomentumZ += airDecelerationFactor*Time.deltaTime;
-
-        }
-
-
-
-
-
-
-
-
-
-        Debug.Log("-------------------------------");
-        Debug.Log("Potential max airControlxSpeed : " + (maxNominalSpeed - impulseSpeed));
-        //TODO CORRECT airControlDir norm so the sum of airControlDir + moveDir/impulse >= maxSpeed
-        airControlDir.x = previousAirControlDir.x + airControlDir.x * (airMomentumX / airRampUpTime)*(maxNominalSpeed-speed);
-        airControlDir.z = previousAirControlDir.z + airControlDir.z * (airMomentumZ / airRampUpTime)*(maxNominalSpeed-speed);
+        // GLUT : hardcoding a airControlFactor to decide how much control the player has over his initial impulse, because lack of time to test (see github for previous attempt, it worked but was pretty unplayable)
+        airControlDir.x = previousAirControlDir.x + airControlDir.x * airControlFactor ;
+        airControlDir.z = previousAirControlDir.z + airControlDir.z * airControlFactor ;
 
         //Combine moveDir and airControlDir according to airInertiaFactor factor
-        // (maxNominalSpeed-impulseSpeed) => potential max norm of airControlDir => importance of airControlDir in the result 
         moveDir = moveDir + airControlDir;
 
         // GLUT Patching speed so it doesn't go above maxSpeed, shouldn't happen but unity magic and probably because speed depends of x AND y and I'm using on x and y independantly 
-        // TODO : decompose speed in speedX and speedY if got time to do so 
         if (speed >= maxNominalSpeed)
             moveDir = moveDir.normalized * maxNominalSpeed;
 
@@ -378,7 +297,6 @@ public class parkourFPSController : MonoBehaviour
     {
         // Update Camera look and freedom according to playerState
         updateCamera();
-
     }
 
 
