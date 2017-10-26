@@ -19,26 +19,31 @@ public class parkourFPSController : MonoBehaviour
     [SerializeField] private float jumpStrength = 20f;                          // Impulse given at the start of a jump
     [SerializeField] private float jumpHeightSpeedFactor = 1.5f;                // At full speed player will jump at jumpHeightSpeedFactor * the height of a basic jump
     [SerializeField] private float killSpeedBonus = 5f;                         // Speed boost given immediately for each ennemy killed
-    [SerializeField] private float slopeClimbingPermissionStep = 0.25f;         // Speed boost given immediately for each ennemy killed
+    [SerializeField] private float slopeClimbingPermissionStep = 0.25f;         // Height shift allowed on Y axis between two frames to considere if the player is grounded or not 
+    [SerializeField] private float maxNominalSpeed = 100f;                      // Player's max speed without any killSpeedBonus
 
     [Space(10)]
     [Header("Running State Variables")]
     [SerializeField] private float runningMinSpeed = 10f;                       // Player will start running at this speed
-    [SerializeField] private float runningMaxNominalSpeed = 100f;               // Player's max speed without any killSpeedBonus
-    [SerializeField] private float runninRampUpTime = 3.0f;                     // Time for player to reach maxNominalSpeed (in seconds)
+    [SerializeField] private float runningRampUpTime = 3.0f;                     // Time in seconds for player to reach maxNominalSpeed (in seconds)
 //    [SerializeField] private float runningRearMinSpeed = 5f;
 //    [SerializeField] private float runningRearMaxSpeed = 20f;
 //    [SerializeField] private float runningRearRampUpTime = 3.0f;
     [SerializeField] private float runningInertiaFactor = 0.9f;                 // [0;1] the bigger the less current input will impact the outcome / the more slippery the player wil be
     [SerializeField] private float runningDecelerationFactor = 0.5f;            // will decelerate at "runningDecelerationFactor" the speed it accelerates
+    private float runningMomentum = 0f;                                         // [0;runningRampUpTime] "porcentage" of the current speed wihtout acknoledging minSpeed
 
     [Space(10)]
     [Header("Airborne State Variables")]
+    [SerializeField] private float airInertiaFactor = 0.9f;                    // [0;1] Player inputs during aircontrol will add up as time goes by with a airRampUpTime factor, so the bigger => better aircontrolbe
+    [SerializeField] private float airRampUpTime = 5f;                         // Time in seconds, it will airControl vector to reach its max potential
+    [SerializeField] private float airDecelerationFactor = 0.5f;               // will decelerate at "runningDecelerationFactor" the speed it accelerates
+    private float airMomentum = 0f;
+    private Vector3 runningToJumpingImpulse = Vector3.zero;
 
     [Space(10)]
     [Header("Mouse Properties")]
     [SerializeField] private MouseLook mouseLook = null;
-
 
     private Camera camera = null;
     private CharacterController controller;
@@ -47,7 +52,6 @@ public class parkourFPSController : MonoBehaviour
     private bool moving, prevGroundedState;
     private UnityEngine.UI.Text m_SpeedOMeterText;       // Text printed on the UI containing speed informations
     private UnityEngine.UI.Text m_DebugZoneText;         // Text printed on the UI containing speed informations
-    private float momentum = 0f;
     private float gravityFactor = 1f;                    // gravity doesn't always impact the player the same way (eg : during a wallrun)
     private bool grounded;                              // Not using controller.isGrounded value because result is based on the PREVIOUS MOVE state
                                                         // Resulting in unreliable state when running up on slanted floors
@@ -187,20 +191,20 @@ public class parkourFPSController : MonoBehaviour
 
             // Build up the "momementum" as long as player is pressing "moving forward/strafing"
             moving = (inputHorizontal!=0 || inputVertical!=0) ? true : false;
-            if (moving && momentum <= runninRampUpTime)
+            if (moving && runningMomentum <= runningRampUpTime)
             {
-                momentum += Time.deltaTime; // build up "temporal" momentum 
-                if (momentum > runninRampUpTime)  // till we reach rampUpTime
+                runningMomentum += Time.deltaTime; // build up "temporal" momentum 
+                if (runningMomentum > runningRampUpTime)  // till we reach rampUpTime
                 {
-                    momentum = runninRampUpTime;
+                    runningMomentum = runningRampUpTime;
                 }
             }
             else // If Player is letting go of the "forward" key, reduce "momentum"
             {
-                momentum -= runningDecelerationFactor*Time.deltaTime;
-                if (momentum < 0)
+                runningMomentum -= runningDecelerationFactor*Time.deltaTime;
+                if (runningMomentum < 0)
                 {
-                    momentum = 0;
+                    runningMomentum = 0;
                 }
             }
                 
@@ -211,20 +215,22 @@ public class parkourFPSController : MonoBehaviour
                 moveDir = Vector3.zero;
             else // Player is moving beyond runningMinSpeed
             {
-                Vector3 foo = moveDir * (runningMinSpeed + ((runningMaxNominalSpeed-runningMinSpeed) * (momentum / runninRampUpTime))); // Calculate current inputs impact on moveDir
+                Vector3 foo = moveDir * (runningMinSpeed + ((maxNominalSpeed-runningMinSpeed) * (runningMomentum / runningRampUpTime))); // Calculate current inputs impact on moveDir
                 moveDir = foo * (1 - runningInertiaFactor) + prevMoveDir * runningInertiaFactor; // mix current inputs vector and previous one according to runningInertiaFactor
             }
 
             // Jump Requested 
             if(inputJump)
             {   
+                runningToJumpingImpulse = moveDir;
                 playerState = PlayerState.jumping;
-                moveDir.y = jumpStrength + jumpStrength*(speed/runningMaxNominalSpeed)*(jumpHeightSpeedFactor-1); 
+                moveDir.y = jumpStrength + jumpStrength*(speed/maxNominalSpeed)*(jumpHeightSpeedFactor-1); 
                 // "standard jump height" + "speed dependent height jump" * (jumpHeightSpeedFactor-1)
             }
         }
         else // Player is running from an edge => change state to "jumping" and override current update()'s cycle result
         {
+            runningToJumpingImpulse = moveDir;
             playerState = PlayerState.jumping;
         }
 
@@ -239,22 +245,60 @@ public class parkourFPSController : MonoBehaviour
         // Update Camera look and freedom according to playerState
         updateCamera();
 
-        if(grounded) // hitting the ground
+        // Check if we're hitting the floor
+        if(grounded) 
         {
             playerState = PlayerState.running;
+            airMomentum = 0f;   // reset airMomentum
+            runningToJumpingImpulse = Vector3.zero;
             return;
         }
 
-        // Check that player isn't bashing its head on the ceiling
-        RaycastHit hit;
-        if ( Physics.SphereCast (transform.position, controller.radius, Vector3.up, out hit,
-            controller.height / 2f, Physics.AllLayers, QueryTriggerInteraction.Ignore) ) // player hit its head during a jump     
-            moveDir.y=0;
+        // Set moveDir as impulse given on ground (will be countered as time goes by, by the airControlDir vector)
+        moveDir.x = runningToJumpingImpulse.x;
+        moveDir.z = runningToJumpingImpulse.z;
 
         // get direction Vector3 from input
-//        moveDir = new Vector3(CrossPlatformInputManager.GetAxis("Horizontal"), 0f, CrossPlatformInputManager.GetAxis("Vertical"));
-//        moveDir = transform.TransformDirection(moveDir) + prevMoveDir;
-//        moveDir.Normalize();
+        Vector3 airControlDir = new Vector3(inputHorizontal, 0f, inputVertical);
+        airControlDir = transform.TransformDirection(airControlDir);
+        airControlDir.Normalize();
+       
+        //Building momentum
+        moving = (inputHorizontal!=0 || inputVertical!=0) ? true : false;
+        if (moving && airMomentum <= airRampUpTime)
+        {
+            airMomentum += Time.deltaTime; // build up "temporal" momentum 
+            if (airMomentum > airRampUpTime)  // till we reach rampUpTime
+            {
+                airMomentum = airRampUpTime;
+            }
+        }
+        else // If Player is letting go of the "forward" key, reduce "momentum"
+        {
+            airMomentum -= airDecelerationFactor*Time.deltaTime;
+            if (airMomentum < 0)
+            {
+                airMomentum = 0;
+            }
+        }
+
+        //TODO CORRECT airControlDir norm so the sum of airControlDir + moveDir/impulse >= maxSpeed
+        airControlDir.x *= maxNominalSpeed*(airMomentum / airRampUpTime)*(maxNominalSpeed-speed);
+        airControlDir.z *= maxNominalSpeed*(airMomentum / airRampUpTime)*(maxNominalSpeed-speed);
+
+        //Combine moveDir and airControlDir according to airInertiaFactor factor
+        Debug.Log("-------------------------------");
+        Debug.Log("movDir : "+moveDir);
+        Debug.Log("airControlDir : "+airControlDir);
+        moveDir = airInertiaFactor*moveDir + (1-airInertiaFactor)*airControlDir;
+
+        // Check (!!! AFTER SPEEDING UP moveDIR !!!) that player isn't bashing its head on the ceiling
+        RaycastHit hit;
+        if (Physics.SphereCast(transform.position, controller.radius, Vector3.up, out hit,
+            controller.height / 2f, Physics.AllLayers, QueryTriggerInteraction.Ignore)) // player hit its head during a jump     
+            moveDir.y = 0;
+        else
+            moveDir.y = prevMoveDir.y;
 
         // Applying gravity
         moveDir.y -= gravity * Time.deltaTime;
@@ -282,7 +326,6 @@ public class parkourFPSController : MonoBehaviour
     {
         // Update Camera look and freedom according to playerState
         updateCamera();
-
     }
 
 
