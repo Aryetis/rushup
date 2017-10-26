@@ -25,7 +25,7 @@ public class parkourFPSController : MonoBehaviour
     [Space(10)]
     [Header("Running State Variables")]
     [SerializeField] private float runningMinSpeed = 10f;                       // Player will start running at this speed
-    [SerializeField] private float runningRampUpTime = 0.2f;                     // Time in seconds for player to reach maxNominalSpeed (in seconds)
+    [SerializeField] private float runningRampUpTime = 0.2f;                    // Time in seconds for player to reach maxNominalSpeed (in seconds)
     [SerializeField] private float runningInertiaFactor = 0.9f;                 // [0;1] the bigger the less current input will impact the outcome / the more slippery the player wil be
     [SerializeField] private float runningDecelerationFactor = 0.5f;            // will decelerate at "runningDecelerationFactor" the speed it accelerates
     private float runningMomentum = 0f;                                         // [0;runningRampUpTime] "porcentage" of the current speed wihtout acknoledging minSpeed
@@ -35,6 +35,15 @@ public class parkourFPSController : MonoBehaviour
     [SerializeField] private float airControlFactor = 2.0f;
     private Vector3 runningToJumpingImpulse = Vector3.zero;
     private Vector3 previousAirControlDir;
+
+    [Space(10)]
+    [SerializeField] private float wallRunMaxTime = 5.0f;                       // How long the player can wallrun TODO : change it to minSpeedWallRun
+    [SerializeField] float wallrunMaxSpeed = 50f;                               // Max Speed during wallrun (speed will increase over time)
+    //TODO add acceleration factor 
+    private bool canWallRun = false;                                            // Check if player is in a state that allows for him to start wallrunning (can't wallrun during a slide, duh)
+    private float wallRunTime = 0.0f;                                           // How long player has been wallrunning
+    private RaycastHit wallHit;                                                 // Target the wall the player is/can currently wallruning on
+
 
     [Space(10)]
     [Header("Mouse Properties")]
@@ -171,6 +180,9 @@ public class parkourFPSController : MonoBehaviour
             // Make sure that our state is set (in case of falling of a clif => no jump but still been airborne for a while)
             playerState = PlayerState.running;
 
+            // Turn on possible moves flags
+            canWallRun = true;
+
             // get direction Vector3 from input
             moveDir = new Vector3(inputHorizontal, 0f, inputVertical);
             moveDir = transform.TransformDirection(moveDir); // Align moveDir vector with localTransform/camera forward vector
@@ -254,6 +266,14 @@ public class parkourFPSController : MonoBehaviour
             return;
         }
 
+        // Do a wall run check and change state if successful.
+        wallHit = checkAccessibleWallrun();
+        if (wallHit.collider != null)
+        {
+            playerState = PlayerState.walling;
+            return;
+        }
+
         // Set moveDir as impulse given on ground (will be countered as time goes by, by the airControlDir vector)
         moveDir.x = runningToJumpingImpulse.x;
         moveDir.z = runningToJumpingImpulse.z;
@@ -293,12 +313,98 @@ public class parkourFPSController : MonoBehaviour
         previousAirControlDir = airControlDir;
     }
 
+    RaycastHit checkAccessibleWallrun()
+    {
+        Ray rayRight = new Ray(transform.position, transform.TransformDirection(Vector3.right));
+        Ray rayLeft = new Ray(transform.position, transform.TransformDirection(Vector3.left));
+
+        RaycastHit wallImpactRight;
+        RaycastHit wallImpactLeft;
+
+        bool rightImpact = Physics.Raycast(rayRight.origin, rayRight.direction, out wallImpactRight, 1f);
+        bool leftImpact = Physics.Raycast(rayLeft.origin, rayLeft.direction, out wallImpactLeft, 1f);
+
+        if (rightImpact && Vector3.Angle(transform.TransformDirection(Vector3.forward), wallImpactRight.normal) > 90)
+        {
+            return wallImpactRight;
+        }
+        else if (leftImpact && Vector3.Angle(transform.TransformDirection(Vector3.forward), wallImpactLeft.normal) > 90)
+        {
+            wallImpactLeft.normal *= -1;
+            return wallImpactLeft;
+        }
+        else
+        {
+            // Just return something empty, because nothing is good for a wall run
+            return new RaycastHit();
+        }
+    }
+
     void updateWalling()
     {
         // Update Camera look and freedom according to playerState
         updateCamera();
+
+        if (!controller.isGrounded && canWallRun && wallRunTime < wallRunMaxTime)
+        {
+            // Always update the wallhit, because we run past the edge of a wall. This keeps us 
+            // from floating off in to the ether.
+            wallHit = checkAccessibleWallrun();
+            if (wallHit.collider == null)
+            {
+                stopWallRun();
+                return;
+            }
+
+            playerState = PlayerState.walling;
+            float previousJumpHeight = moveDir.y;
+
+            Vector3 crossProduct = Vector3.Cross(Vector3.up, wallHit.normal);
+
+            Quaternion lookDirection = Quaternion.LookRotation(crossProduct);
+            transform.rotation = Quaternion.Slerp(transform.rotation, lookDirection, 3.5f * Time.deltaTime);
+
+            //camera.transform.Rotate(new Vector3(0f,0f,20f * Time.deltaTime));
+           
+            moveDir = crossProduct;
+            moveDir.Normalize();
+            moveDir *= runningMinSpeed + ( wallrunMaxSpeed * (runningMomentum / runningRampUpTime));
+
+            if (wallRunTime == 0.0f)
+            {
+                // increase vertical movement.
+                moveDir.y = jumpStrength / 4;
+            }
+            else
+            {
+                moveDir.y = previousJumpHeight;
+                moveDir.y -= (gravity / 4) * Time.deltaTime;
+            }
+
+            wallRunTime += Time.deltaTime;
+            //Debug.Log("Wall run time: " + wallRunTime);
+
+            if (wallRunTime > wallRunMaxTime)
+            {
+                canWallRun = false;
+                Debug.Log ("Max wall run time hit.");
+            }
+
+        }
+        else
+        {
+            stopWallRun();
+        }
     }
 
+
+
+    void stopWallRun()
+    {
+        canWallRun = false; // will be reseted once the player hit the floor 
+        wallRunTime = 0.0f;
+        playerState = PlayerState.jumping;
+    }
 
 
     void updateSliding()
@@ -345,7 +451,7 @@ public class parkourFPSController : MonoBehaviour
                                          controller.velocity.z * controller.velocity.z);
         // Actualize SpeedOMeter UI text
         m_SpeedOMeterText.text = speed + "m/s";
-//        m_DebugZoneText.text = "m_speedPorcentage : " + m_speedPorcentage;
+        m_DebugZoneText.text = "current state : " + playerState;
     }
 
 }
