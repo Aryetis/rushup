@@ -4,7 +4,7 @@ using UnityStandardAssets.CrossPlatformInput;
 using UnityEngine;
 
 /* TODO list :
- *      allow player to accelerate going in reverse ?
+ *      Put different factor for walking in reverse
  * 
  */
 
@@ -17,6 +17,7 @@ public class parkourFPSController : MonoBehaviour
     [Header("Global Variables")]
     [SerializeField] private float gravity = 9.81f;                             // Gravity applied to the vector on the Y axis
     [SerializeField] private float jumpStrength = 20f;                          // Impulse given at the start of a jump
+    [SerializeField] private float jumpHeightSpeedFactor = 1.5f;                // At full speed player will jump at jumpHeightSpeedFactor * the height of a basic jump
     [SerializeField] private float killSpeedBonus = 5f;                         // Speed boost given immediately for each ennemy killed
     [SerializeField] private float slopeClimbingPermissionStep = 0.25f;         // Speed boost given immediately for each ennemy killed
 
@@ -30,6 +31,9 @@ public class parkourFPSController : MonoBehaviour
 //    [SerializeField] private float runningRearRampUpTime = 3.0f;
     [SerializeField] private float runningInertiaFactor = 0.9f;                 // [0;1] the bigger the less current input will impact the outcome / the more slippery the player wil be
     [SerializeField] private float runningDecelerationFactor = 0.5f;            // will decelerate at "runningDecelerationFactor" the speed it accelerates
+
+    [Space(10)]
+    [Header("Airborne State Variables")]
 
     [Space(10)]
     [Header("Mouse Properties")]
@@ -56,10 +60,6 @@ public class parkourFPSController : MonoBehaviour
     private float prevInputVertical;
     private bool inputJump;
     private bool inputSlide;
-
-
-
-
 
 	// Use this for initialization
 	void Start ()
@@ -138,7 +138,6 @@ public class parkourFPSController : MonoBehaviour
             default:
             { break; }
         }
-
 
         /*** APPLYING moveDir FORCE ***/
         controller.Move(moveDir * Time.deltaTime);
@@ -220,7 +219,8 @@ public class parkourFPSController : MonoBehaviour
             if(inputJump)
             {   
                 playerState = PlayerState.jumping;
-                moveDir.y = jumpStrength; // TODO : tweak it so a jump at maxSpeed is 1,5* a basic one 
+                moveDir.y = jumpStrength + jumpStrength*(speed/runningMaxNominalSpeed)*(jumpHeightSpeedFactor-1); 
+                // "standard jump height" + "speed dependent height jump" * (jumpHeightSpeedFactor-1)
             }
         }
         else // Player is running from an edge => change state to "jumping" and override current update()'s cycle result
