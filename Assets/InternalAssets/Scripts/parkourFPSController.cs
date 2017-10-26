@@ -17,14 +17,20 @@ public class parkourFPSController : MonoBehaviour
     [Header("Global Variables")]
     [SerializeField] private float gravity = 9.81f;                             // Gravity applied to the vector on the Y axis
     [SerializeField] private float jumpStrength = 20f;                          // Impulse given at the start of a jump
-    [SerializeField] private float minSpeed = 10f;                              // Player will start running at this speed
-    [SerializeField] private float maxNominalSpeed = 100f;                      // Player's max speed without any killSpeedBonus
-    [SerializeField] private float runninRampUpTime = 3.0f;                     // Time for player to reach maxNominalSpeed (in seconds)
-    [SerializeField] private float runningInertiaFactor = 0.5f;                  
     [SerializeField] private float killSpeedBonus = 5f;                         // Speed boost given immediately for each ennemy killed
     [SerializeField] private float slopeClimbingPermissionStep = 0.25f;         // Speed boost given immediately for each ennemy killed
+
     [Space(10)]
-    [Header("Acceleration/Deceleration Factors")]
+    [Header("Running State Variables")]
+    [SerializeField] private float runningMinSpeed = 10f;                       // Player will start running at this speed
+    [SerializeField] private float runningMaxNominalSpeed = 100f;               // Player's max speed without any killSpeedBonus
+    [SerializeField] private float runninRampUpTime = 3.0f;                     // Time for player to reach maxNominalSpeed (in seconds)
+//    [SerializeField] private float runningRearMinSpeed = 5f;
+//    [SerializeField] private float runningRearMaxSpeed = 20f;
+//    [SerializeField] private float runningRearRampUpTime = 3.0f;
+    [SerializeField] private float runningInertiaFactor = 0.9f;                 // [0;1] the bigger the less current input will impact the outcome / the more slippery the player wil be
+    [SerializeField] private float runningDecelerationFactor = 0.5f;            // will decelerate at "runningDecelerationFactor" the speed it accelerates
+
     [Space(10)]
     [Header("Mouse Properties")]
     [SerializeField] private MouseLook mouseLook = null;
@@ -180,14 +186,10 @@ public class parkourFPSController : MonoBehaviour
                 moveDir = Vector3.ProjectOnPlane(moveDir, hitInfoDown.normal).normalized;
             }
 
-            // Build up the "momementum" as long as player is pressing "forward"
-            // WARNING : place after slant correction phase because it uses moveDir to determine wheter the player is insta changing direction
-            //           so it can build his momentum or not
+            // Build up the "momementum" as long as player is pressing "moving forward/strafing"
             moving = (inputHorizontal!=0 || inputVertical!=0) ? true : false;
             if (moving && momentum <= runninRampUpTime)
             {
-                //TODO add conditiion to check that we're going in the same direction 
-                // TODO USE inputHorizontalVertical and prevInputs to check that /\
                 momentum += Time.deltaTime; // build up "temporal" momentum 
                 if (momentum > runninRampUpTime)  // till we reach rampUpTime
                 {
@@ -196,26 +198,23 @@ public class parkourFPSController : MonoBehaviour
             }
             else // If Player is letting go of the "forward" key, reduce "momentum"
             {
-                momentum -= runningInertiaFactor*Time.deltaTime;
+                momentum -= runningDecelerationFactor*Time.deltaTime;
                 if (momentum < 0)
                 {
                     momentum = 0;
                 }
             }
-
-            // Compute moveDir according to minSpeed, maxNominalSpeed, deltaTime, killStackSpeed, etc
-            Vector3 bar = moveDir;
-            moveDir *= minSpeed + ((maxNominalSpeed-minSpeed) * (momentum / runninRampUpTime));
-            Vector3 foo = moveDir;
-            if(speed <= 0.5)
-            {
-                Debug.Log("helloooo ?");
-                moveDir = bar * minSpeed;
-            }
-            else if (!moving && speed <= minSpeed)
+                
+            // Compute moveDir according to minSpeed, maxNominalSpeed, deltaTime, inertiaFactor, etc
+            if (speed <= 0.5) // if player's speed is below minSpeed => kickstart player to runningMinSpeed
+                moveDir *= runningMinSpeed; // no need to check if player is moving as in this case moveDir will already be at 0
+            else if (!moving && speed <= runningMinSpeed) // if player is decelerating and going below runningMinSpeed => Stop him immediately
                 moveDir = Vector3.zero;
-            else
-                moveDir = foo * 0.1f + prevMoveDir * 0.9f;
+            else // Player is moving beyond runningMinSpeed
+            {
+                Vector3 foo = moveDir * (runningMinSpeed + ((runningMaxNominalSpeed-runningMinSpeed) * (momentum / runninRampUpTime))); // Calculate current inputs impact on moveDir
+                moveDir = foo * (1 - runningInertiaFactor) + prevMoveDir * runningInertiaFactor; // mix current inputs vector and previous one according to runningInertiaFactor
+            }
 
             // Jump Requested 
             if(inputJump)
