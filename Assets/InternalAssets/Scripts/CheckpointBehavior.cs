@@ -20,7 +20,7 @@ public class CheckpointBehavior : MonoBehaviour
     private bool active;                                                    // describe current checkpoint state, true if the player has to reach it
     private bool finalCheckpoint;                                           // true if there is no nextCheckpoint linked in the editor
     private bool triggered;                                                 // triggered if a player collide with its trigger
-    static List<float> checkpointTimeTable= new List<float>();              // Contains player's time for each section of the track
+    private static List<float> checkpointTimeTable= new List<float>();      // Contains player's time for each section of the track
     private Renderer renderer = null;                                       // checkpoint's renderer used to change its look according to active state
     private UIBehavior ui;                                                  // ui is holding time value, we need to access it to save time per section value
 
@@ -74,5 +74,10 @@ public class CheckpointBehavior : MonoBehaviour
     {
         renderer.material = activeCheckpointMaterial;
         active = true;
+    }
+
+    public static List<float> getCheckpointTimeTable()
+    {
+        return checkpointTimeTable;
     }
 }

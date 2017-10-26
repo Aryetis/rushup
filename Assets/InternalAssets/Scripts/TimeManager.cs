@@ -4,7 +4,7 @@ using UnityEngine;
 
 public class TimeManager : MonoBehaviour
 {
-    [SerializeField] private float timeScale;
+    public float timeScale;
 
 	// Use this for initialization
 	void Start ()

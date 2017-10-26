@@ -4,22 +4,20 @@ using UnityEngine;
 
 public class UIBehavior : MonoBehaviour
 {
-    private float currentTime = 0;                  // Contains current time since the object creation
-                                                    // TODO make a script to add a 3,2,1, GO timer at start 
-    private UnityEngine.UI.Text speedOMeterText;    // Text printed on the UI containing speed informations
-    private UnityEngine.UI.Text debugZoneText;      // Text printed on the UI containing debug information
-    private UnityEngine.UI.Text timerText;          // Text printed on the UI containing timer
-
-    private parkourFPSController fpsConScript;
+    private float currentTime = 0;                    // Contains current time since the object creation
+                                                      // TODO make a script to add a 3,2,1, GO timer at start 
+    private UnityEngine.UI.Text speedOMeterText;      // Text printed on the UI containing speed informations
+    private UnityEngine.UI.Text debugZoneText;        // Text printed on the UI containing debug information
+    private UnityEngine.UI.Text timerText;            // Text printed on the UI containing timer
+    private UnityEngine.UI.Text SectionTimeTableText; // Text printed on the UI containing timer
 
 	// Use this for initialization
 	void Start ()
     {
-        fpsConScript = GameObject.FindGameObjectWithTag("Player").GetComponent<parkourFPSController>();
-
         speedOMeterText = GameObject.Find ("SpeedOMeter").GetComponent<UnityEngine.UI.Text>();
         debugZoneText = GameObject.Find ("DebugZone").GetComponent<UnityEngine.UI.Text>();
         timerText = GameObject.Find("Timer").GetComponent<UnityEngine.UI.Text>();
+        SectionTimeTableText = GameObject.Find("SectionTimeTable").GetComponent<UnityEngine.UI.Text>();
 	}
 	
 	// Update is called once per frame
@@ -28,9 +26,9 @@ public class UIBehavior : MonoBehaviour
         currentTime += Time.deltaTime;
 
         // Actualize SpeedOMeter UI text
-        speedOMeterText.text = fpsConScript.getSpeed() + "m/s";
+        speedOMeterText.text = parkourFPSController.getSpeed() + "m/s";
         // Actualize debugZone text
-        debugZoneText.text = "current state : " + fpsConScript.getPlayerState();
+        debugZoneText.text = "current state : " + parkourFPSController.getPlayerState();
         // Actualize timer text
         string minutes = ((int)currentTime / 60).ToString();
         string seconds = (currentTime % 60).ToString("F2");
@@ -45,9 +43,28 @@ public class UIBehavior : MonoBehaviour
     public void printSectionTimeTable()
     {
         Debug.Log("game over");
-        // freeze the game
-        Time.timeScale = 0.05f; // can't set timescale to 0 ... because Unity
-        // clean the UI and print each time per section
+        // freeze/slowDown the game
+        GameObject.Find("ScriptHolder").GetComponent<TimeManager>().timeScale = 0.01f; // can't set timescale to 0 ... because Unity
 
+        // claim back the cursor
+        parkourFPSController pkScript = GameObject.Find("FPSController").GetComponent<parkourFPSController>();
+        pkScript.mouseLook.lockCursor = false;
+        pkScript.mouseLook.XSensitivity = 0;
+        pkScript.mouseLook.YSensitivity = 0;
+
+        // clean the UI and print each time per section
+        GameObject.Find("SpeedOMeter").SetActive(false);
+        GameObject.Find("DebugZone").SetActive(false);
+        GameObject.Find("Timer").SetActive(false);
+
+        int sectionEntry = 0;
+        foreach(float time in CheckpointBehavior.getCheckpointTimeTable())
+        {
+            string minutes = ((int)time / 60).ToString();
+            string seconds = (time % 60).ToString("F2");
+            string timeEntry = "Section"+sectionEntry+" : "+minutes+":"+seconds+"\n";
+            SectionTimeTableText.text += timeEntry;
+            sectionEntry++;
+        }
     }
 }

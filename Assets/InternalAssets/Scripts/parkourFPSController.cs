@@ -50,15 +50,15 @@ public class parkourFPSController : MonoBehaviour
 
     [Space(10)]
     [Header("Mouse Properties")]
-    [SerializeField] private MouseLook mouseLook = null;                        // Standard Asset script taking care of moving the camera according to mouse inputs
-
+    [SerializeField] public MouseLook mouseLook = null;                         // Standard Asset script taking care of moving the camera according to mouse inputs
+                                                                                // public because UI must unlock cursor to allow player to click on buttons
     private Camera camera = null;                                               // 
     private CharacterController controller;                                     //
-    private PlayerState playerState = PlayerState.running;                      //
+    private static PlayerState playerState = PlayerState.running;               //
     private Vector3 moveDir=Vector3.zero;                                       //
     private Vector3 prevMoveDir=Vector3.zero;                                   //
     private bool moving, prevGroundedState;                                     //
-    private float speed;                                                        // Player speed along x and z axis => NOT taking into account Y axis (no falling speed displayed)
+    private static float speed;                                                 // Player speed along x and z axis => NOT taking into account Y axis (no falling speed displayed)
     private float inputHorizontal;                                              //
     private float inputVertical;                                                //
     private float prevInputHorizontal;                                          //
@@ -447,14 +447,14 @@ public class parkourFPSController : MonoBehaviour
 
 
 
-    public string getPlayerState()
+    public static string getPlayerState()
     {
         return playerState.ToString();
     }
 
 
 
-    public string getSpeed()
+    public static string getSpeed()
     {
         return speed.ToString();
     }
