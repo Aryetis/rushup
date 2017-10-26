@@ -1,11 +1,11 @@
 ﻿using System.Collections;
 using UnityStandardAssets.Characters.FirstPerson; // only for MouseLook
-using UnityStandardAssets.CrossPlatformInput;
+using UnityStandardAssets.CrossPlatformInput;     // TODO : check if controls are working on Android ... it shoulds otherwise there's close to no point using CrossPlatformInput
 using UnityEngine;
 
 /* TODO (after the project is "done") list :
  *      Put different factor for walking in reverse
- *      Rework
+ *      
  */
 
 public class parkourFPSController : MonoBehaviour
@@ -15,7 +15,7 @@ public class parkourFPSController : MonoBehaviour
     //                                          pushing <=> pushing up from edging state
 
     [Header("Global Variables")]
-    [SerializeField] private float gravity = 20f;                             // Gravity applied to the vector on the Y axis
+    [SerializeField] private float gravity = 20f;                               // Gravity applied to the vector on the Y axis
     [SerializeField] private float jumpStrength = 20f;                          // Impulse given at the start of a jump
     [SerializeField] private float jumpHeightSpeedFactor = 1.5f;                // At full speed player will jump at jumpHeightSpeedFactor * the height of a basic jump
     [SerializeField] private float killSpeedBonus = 5f;                         // Speed boost given immediately for each ennemy killed
@@ -32,13 +32,16 @@ public class parkourFPSController : MonoBehaviour
 
     [Space(10)]
     [Header("Airborne State Variables")]
-    [SerializeField] private float airControlFactor = 2.0f;
-    private Vector3 runningToJumpingImpulse = Vector3.zero;
-    private Vector3 previousAirControlDir;
+    [SerializeField] private float airControlFactor = 2.0f;                     // Determine how much the inputs performed by the player while airborne impact his direction
+    private Vector3 runningToJumpingImpulse = Vector3.zero;                     // moveDir vector at the moment of the jump, used to kickstart the direction of the jump
+    private Vector3 previousAirControlDir;                                      // direction of the airborne player at the previous frame
 
     [Space(10)]
+    [Header("Wallrun State Variables")]
     [SerializeField] private float wallRunMaxTime = 5.0f;                       // How long the player can wallrun TODO : change it to minSpeedWallRun
     [SerializeField] float wallrunMaxSpeed = 50f;                               // Max Speed during wallrun (speed will increase over time)
+
+
     //TODO add acceleration factor 
     private bool canWallRun = false;                                            // Check if player is in a state that allows for him to start wallrunning (can't wallrun during a slide, duh)
     private float wallRunTime = 0.0f;                                           // How long player has been wallrunning
@@ -47,27 +50,25 @@ public class parkourFPSController : MonoBehaviour
 
     [Space(10)]
     [Header("Mouse Properties")]
-    [SerializeField] private MouseLook mouseLook = null;
+    [SerializeField] private MouseLook mouseLook = null;                        // Standard Asset script taking care of moving the camera according to mouse inputs
 
-    private Camera camera = null;
-    private CharacterController controller;
-    private PlayerState playerState = PlayerState.running;
-    private Vector3 moveDir=Vector3.zero, prevMoveDir=Vector3.zero;
-    private bool moving, prevGroundedState;
-    private UnityEngine.UI.Text m_SpeedOMeterText;      // Text printed on the UI containing speed informations
-    private UnityEngine.UI.Text m_DebugZoneText;        // Text printed on the UI containing speed informations
-    private float gravityFactor = 1f;                   // gravity doesn't always impact the player the same way (eg : during a wallrun)
-    private bool grounded;                              // Not using controller.isGrounded value because result is based on the PREVIOUS MOVE state
-                                                        // Resulting in unreliable state when running up on slanted floors
-                                                        // ( https://forum.unity.com/threads/charactercontroller-isgrounded-returning-unreliable-state.494786/ ) 
-    private float speed;
+    private Camera camera = null;                                               // 
+    private CharacterController controller;                                     //
+    private PlayerState playerState = PlayerState.running;                      //
+    private Vector3 moveDir=Vector3.zero;                                       //
+    private Vector3 prevMoveDir=Vector3.zero;                                   //
+    private bool moving, prevGroundedState;                                     //
+    private float speed;                                                        // Player speed along x and z axis => NOT taking into account Y axis (no falling speed displayed)
+    private float inputHorizontal;                                              //
+    private float inputVertical;                                                //
+    private float prevInputHorizontal;                                          //
+    private float prevInputVertical;                                            //
+    private bool inputJump;                                                     //
+    private bool inputSlide;                                                    //
+    private bool grounded;                                                      // Not using controller.isGrounded value because result is based on the PREVIOUS MOVE state
+                                                                                // Resulting in unreliable state when running up on slanted floors
+                                                                                // ( https://forum.unity.com/threads/charactercontroller-isgrounded-returning-unreliable-state.494786/ ) 
 
-    private float inputHorizontal;
-    private float inputVertical;
-    private float prevInputHorizontal;
-    private float prevInputVertical;
-    private bool inputJump;
-    private bool inputSlide;
 
 	// Use this for initialization
 	void Start ()
@@ -76,8 +77,6 @@ public class parkourFPSController : MonoBehaviour
         controller = GetComponent<CharacterController>();
         controller.detectCollisions = true;
         mouseLook.Init(transform , camera.transform);
-        m_SpeedOMeterText = GameObject.Find ("SpeedOMeter").GetComponent<UnityEngine.UI.Text>();
-        m_DebugZoneText = GameObject.Find ("DebugZone").GetComponent<UnityEngine.UI.Text>();
 
         // Teleport Player to the ground to be sure of its playerState at startup
         RaycastHit hit;
@@ -103,8 +102,9 @@ public class parkourFPSController : MonoBehaviour
         inputVertical = CrossPlatformInputManager.GetAxis("Vertical");
         inputJump = CrossPlatformInputManager.GetButton("Jump");
 
-        /*** UPDATING UI ***/
-        updateUI();
+        /*** UPDATING speed (for UI and various update[State]() ***/
+        speed = (float) Mathf.Sqrt(controller.velocity.x * controller.velocity.x +
+            controller.velocity.z * controller.velocity.z);
 
         /*** UPDATING grounded STATE ***/
         RaycastHit hit;
@@ -364,7 +364,7 @@ public class parkourFPSController : MonoBehaviour
             Quaternion lookDirection = Quaternion.LookRotation(crossProduct);
             transform.rotation = Quaternion.Slerp(transform.rotation, lookDirection, 3.5f * Time.deltaTime);
 
-            //camera.transform.Rotate(new Vector3(0f,0f,20f * Time.deltaTime));
+            camera.transform.Rotate(new Vector3(0f,0f,800f * Time.deltaTime));
            
             moveDir = crossProduct;
             moveDir.Normalize();
@@ -431,6 +431,8 @@ public class parkourFPSController : MonoBehaviour
 
     }
 
+
+
     void updateCamera()
     {
         switch(playerState)
@@ -445,13 +447,15 @@ public class parkourFPSController : MonoBehaviour
 
 
 
-    void updateUI()
+    public string getPlayerState()
     {
-        speed = (float) Mathf.Sqrt(controller.velocity.x * controller.velocity.x +
-                                         controller.velocity.z * controller.velocity.z);
-        // Actualize SpeedOMeter UI text
-        m_SpeedOMeterText.text = speed + "m/s";
-        m_DebugZoneText.text = "current state : " + playerState;
+        return playerState.ToString();
     }
 
+
+
+    public string getSpeed()
+    {
+        return speed.ToString();
+    }
 }
