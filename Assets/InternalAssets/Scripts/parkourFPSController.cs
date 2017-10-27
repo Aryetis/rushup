@@ -60,16 +60,19 @@ public class parkourFPSController : MonoBehaviour
     [Header("Wallrun State Variables")]
     [SerializeField] private float wallRunMaxTime = 5.0f;                           // How long the player can wallrun TODO : change it to minSpeedWallRun
     [SerializeField] float wallrunMaxSpeed = 50f;                                   // Max Speed during wallrun (speed will increase over time)
-    [SerializeField] float wallrunImpulse = 20f;                                    // TODO
-    [SerializeField] float kickAngleHorizontal = 30f;                               // TODO
-    [SerializeField] float kickAngleVertical = 30f;                                 // TODO
+    [SerializeField] float wallrunImpulse = 200f;                                    // TODO
+    [SerializeField] private float wallrunGravityFactor = 2f;                       // During wallrun gravity will have less impact on the player by a factor wallrunGravityFactor (gravity /= wallrunGravityFactor)
+    [SerializeField] private float wallrunningDecelerationFactor = 0.0025f;            // Player's momentum will decrease by deltaTime*wallrunningDecelerationFactor at each frame
     private RaycastHit wallHit;                                                     // Target the wall the player is/can currently wallruning on
     private float wallRunTime = 0.0f;                                               // How long player has been wallrunning
 
     [Space(10)]
     [Header("Wallclimb State Variables")]
+    [SerializeField] private float snapCameraSpeed = 3f;                            // The smallest the faster the camera will snap on its wallrun position
     [SerializeField] private float wallclimbImpulse = 50f;                          // TODO
-    private float wallclimbingTime = 0f;                                                   // How long the player has been wallclimbing
+    [SerializeField] private float initialVerticalImpulse = 10f;
+    [SerializeField] private float wallclimbStallSpeed = 20f;                       // when player's speed reach wallclimbStallSpeed, he will fall off from wall
+    private float wallclimbingTime = 0f;                                            // How long the player has been wallclimbing
 
     [Space(10)]
     [Header("Sliding State Variables")]
@@ -117,11 +120,7 @@ public class parkourFPSController : MonoBehaviour
 	// Update is called once per frame
 	void Update ()
     {
-        /*** CAPTURING INPUTS ***/
-        //TODO this section to fixedUpdate to be sure we're not missing any inputs in case of lag
-        inputHorizontal = CrossPlatformInputManager.GetAxis("Horizontal"); 
-        inputVertical = CrossPlatformInputManager.GetAxis("Vertical");
-        inputJump = CrossPlatformInputManager.GetButton("Jump");
+        /*** CAPTURING INPUTS MOVED INSIDE FixedUpdate() ***/
 
         /*** UPDATING speed (for UI and various update[State]() ***/
         updateSpeed();
@@ -195,7 +194,11 @@ public class parkourFPSController : MonoBehaviour
     // FixedUpdate is called once per physic cycle
     void FixedUpdate ()
     { 
-
+        /*** CAPTURING INPUTS ***/
+        // Doing this inside FixedUpdate to make sure we didn't miss any inputs in case of lag
+        inputHorizontal = CrossPlatformInputManager.GetAxis("Horizontal"); 
+        inputVertical = CrossPlatformInputManager.GetAxis("Vertical");
+        inputJump = CrossPlatformInputManager.GetButton("Jump");
     }
         
 
@@ -389,7 +392,7 @@ public class parkourFPSController : MonoBehaviour
     void updateWallrunning()
     {
         // Update Camera look and freedom according to playerState
-        updateCamera();
+//        updateCamera();
 
         if (!controller.isGrounded && canWallRun && wallRunTime < wallRunMaxTime)
         {
@@ -402,38 +405,37 @@ public class parkourFPSController : MonoBehaviour
                 return;
             }
 
+            // Make sure we set the state to wallrunning
             playerState = PlayerState.wallrunning;
-            float previousJumpHeight = moveDir.y;
 
             Vector3 crossProduct = Vector3.Cross(Vector3.up, wallHit.normal);
-
             Quaternion lookDirection = Quaternion.LookRotation(crossProduct);
-            transform.rotation = Quaternion.Slerp(transform.rotation, lookDirection, 3.5f * Time.deltaTime);
-
-            camera.transform.Rotate(new Vector3(0f,0f,800f * Time.deltaTime));
+            transform.rotation = Quaternion.Slerp(transform.rotation, lookDirection, snapCameraSpeed * Time.deltaTime);
+            //TODO WORK IT OUT SO IT ALWAYS APPLY THIS ON THE OPPOSITE SIDE OF THE WALL 
+            camera.transform.Rotate(new Vector3(0f,800f*Time.deltaTime),0f);
            
+            // Decrease momentum overtime (share the same momentum as running as its "foot momentum")
+            //            runningMomentum -= wallrunningDecelerationFactor*Time.deltaTime;
+            //            if (runningMomentum < 0)
+            //            {
+            //                runningMomentum = 0;
+            //            }
+
             moveDir = crossProduct;
             moveDir.Normalize();
             moveDir *= runningMinSpeed + ( wallrunMaxSpeed * (runningMomentum / runningRampUpTime));
 
-            if (wallRunTime == 0.0f)
-            {
-                // increase vertical movement.
-                moveDir.y = jumpStrength / 4;
-            }
-            else
-            {
-                moveDir.y = previousJumpHeight;
-                moveDir.y -= (gravity / 4) * Time.deltaTime;
-            }
+            // Set the vertical curve of the wallrun
+            moveDir.y = prevMoveDir.y;
+            moveDir.y -= (gravity / wallrunGravityFactor) * Time.deltaTime;
 
+            // update wallRunTime
             wallRunTime += Time.deltaTime;
-            //Debug.Log("Wall run time: " + wallRunTime);
 
-            if (wallRunTime > wallRunMaxTime)
+            if (speed < wallclimbStallSpeed || inputVertical <= 0)
             {
-                canWallRun = false;
-                Debug.Log ("Max wall run time hit.");
+                Debug.Log ("Falling");
+                // kick off from wall a little 
             }
 
         }
