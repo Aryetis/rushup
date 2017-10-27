@@ -15,6 +15,6 @@ public class TimeManager : MonoBehaviour
 	// Update is called once per frame
 	void Update ()
     {
-        Time.timeScale = timeScale; 
+//        Time.timeScale = timeScale; 
 	}
 }
