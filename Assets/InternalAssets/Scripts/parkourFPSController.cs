@@ -36,9 +36,12 @@ public class parkourFPSController : MonoBehaviour
     private Vector3 moveDir=Vector3.zero;                                           // Current frame player's movement vector
     private Vector3 prevMoveDir=Vector3.zero;                                       // Previous frame player's movement
     private bool prevGroundedState;                                                 // Previous frame's grounded
-    private bool grounded;                                                          // Not using controller.isGrounded value because result is based on the PREVIOUS MOVE state
-                                                                                    // Resulting in unreliable state when running up on slanted floors
-                                                                                    // ( https://forum.unity.com/threads/charactercontroller-isgrounded-returning-unreliable-state.494786/ ) 
+    private bool grounded;      // Not using controller.isGrounded value because result is based on the PREVIOUS MOVE state
+                                // Resulting in unreliable state when running up on slanted floors
+                                // ( https://forum.unity.com/threads/charactercontroller-isgrounded-returning-unreliable-state.494786/ ) 
+    private bool hitByBullet;
+    private Vector3 collisionDirection;
+    private float bulletHitMomentum = 0f;
 
     [Space(10)]
     [Header("Running State Variables")]
@@ -95,6 +98,7 @@ public class parkourFPSController : MonoBehaviour
         controller = GetComponent<CharacterController>();
         controller.detectCollisions = true;
         mouseLook.Init(transform , camera.transform);
+        hitByBullet = false;
 
         // Teleport Player to the ground to be sure of its playerState at startup
         RaycastHit hit;
@@ -109,10 +113,7 @@ public class parkourFPSController : MonoBehaviour
         }
 	}
 
-    void OnCollisionEnter(Collision col)
-    {
-        Debug.Log("collision detected");   
-    }
+
 	
 	// Update is called once per frame
 	void Update ()
@@ -177,6 +178,11 @@ public class parkourFPSController : MonoBehaviour
             { break; }
         }
 
+        /*** Manage hit by bullet ***/
+        if(hitByBullet) {
+            updateBulletHit();
+        }
+       
         /*** APPLYING moveDir FORCE ***/
         controller.Move(moveDir * Time.deltaTime);
 
@@ -197,8 +203,38 @@ public class parkourFPSController : MonoBehaviour
     { 
 
     }
-        
 
+    void OnCollisionEnter(Collision col)
+    {
+        if(col.gameObject.tag == "Projectile")
+        {
+            collisionDirection = col.impulse * -1;
+            collisionDirection.Normalize();
+            collisionDirection.y = 0;
+
+            Debug.LogWarning(collisionDirection);
+
+            hitByBullet = true;
+            bulletHitMomentum = 0f;
+
+            Destroy(col.gameObject);
+        }
+        
+    }
+
+    void updateBulletHit()
+    {
+        if (bulletHitMomentum < 1.0)
+        {
+            moveDir += collisionDirection;
+            bulletHitMomentum += Time.deltaTime;
+        } else
+        {
+            hitByBullet = false;
+        }
+            
+       
+    }
 
     void updateRunning()
     {
@@ -279,8 +315,6 @@ public class parkourFPSController : MonoBehaviour
         // Applying gravity
         moveDir.y -= gravity * Time.deltaTime;
     }
-
-
 
     void updateJumping()
     {
@@ -564,9 +598,7 @@ public class parkourFPSController : MonoBehaviour
             controller.velocity.z * controller.velocity.z);
     }
 
-
-
-    public static string getPlayerState()
+     public static string getPlayerState()
     {
         return playerState.ToString();
     }
