@@ -331,9 +331,10 @@ public class parkourFPSController : MonoBehaviour
         moveDir = moveDir + airControlDir;
 
         // GLUT Patching speed so it doesn't go above maxSpeed, shouldn't happen but unity magic and probably because speed depends of x AND y and I'm using on x and y independantly $
-        updateSpeed(); // actualize speed to check moveDir current norm
-        if (speed >= maxNominalSpeed)
+        if (moveDir.magnitude >= maxNominalSpeed)
+        {
             moveDir = moveDir.normalized * maxNominalSpeed;
+        }
 
         // Check that player isn't bashing its head on the ceiling
         RaycastHit ceilingHit;
