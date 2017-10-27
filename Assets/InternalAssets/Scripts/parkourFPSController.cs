@@ -5,7 +5,7 @@ using UnityEngine;
 
 /* TODO (after the project is "done") list :
  *      Put different factor for walking in reverse
- *      
+ *      rename runningMomentum as it's used for wallrun and slide too (for smoother transition between each state / movements)
  */
 
 public class parkourFPSController : MonoBehaviour
@@ -68,9 +68,10 @@ public class parkourFPSController : MonoBehaviour
     [SerializeField] private float wallRunMaxTime = 5.0f;                           // How long the player can wallrun TODO : change it to minSpeedWallRun
     [SerializeField] float wallrunMaxSpeed = 50f;                                   // Max Speed during wallrun (speed will increase over time)
     [SerializeField] float wallrunImpulse = 200f;                                   // TODO
-    [SerializeField] private float wallrunGravityFactor = 2f;                       // During wallrun gravity will have less impact on the player by a factor wallrunGravityFactor (gravity /= wallrunGravityFactor)
+    [SerializeField] private float wallrunningGravityFactor = 2f;                   // The bigger => the less gravity will impact player during wallrun
     [SerializeField] private float wallrunningDecelerationFactor = 0.0025f;         // Player's momentum will decrease by deltaTime*wallrunningDecelerationFactor at each frame
     [SerializeField] private float wallrunCoolDown = 0.5f;                          // Prevent player from hitting too much wallrun in a row
+    [SerializeField] private float wallRunMinSpeed = 20f;
     private RaycastHit wallHit;                                                     // Target the wall the player is/can currently wallruning on
     private float wallRunTime = 0.0f;                                               // How long player has been wallrunning
     private GameObject previousWallWallran = null;                                  // keep in memory the last wall that has been wallran to prevent player from wallrunning on it two times in a row
@@ -437,23 +438,27 @@ public class parkourFPSController : MonoBehaviour
             transform.rotation = Quaternion.Slerp(transform.rotation, lookDirection, 3.5f * Time.deltaTime);
 
             // TODO decrement momentum 
+            runningMomentum -= wallrunningDecelerationFactor*Time.deltaTime;
+            if (runningMomentum < 0)
+            {
+                runningMomentum = 0;
+            }
 
             // Actualize moveDir
             moveDir = crossProduct;
             moveDir.Normalize();
-            moveDir *= runningMinSpeed + ( wallrunMaxSpeed * (runningMomentum / runningRampUpTime));
+            moveDir *= wallRunMinSpeed + ( (wallrunMaxSpeed-wallRunMinSpeed) * (runningMomentum / runningRampUpTime));
 
             // Set the vertical curve of the wallrun
             moveDir.y = prevMoveDir.y;
-            moveDir.y -= (gravity / wallrunGravityFactor) * Time.deltaTime;
+            moveDir.y -= (gravity / wallrunningGravityFactor) * Time.deltaTime;
 
             // update wallRunTime
             wallRunTime += Time.deltaTime;
 
-            if (speed < wallclimbStallSpeed || inputVertical <= 0)
+            if (speed < wallRunMinSpeed || inputVertical <= 0)
             {
-//                stopWallRun(false); // user decided to stop wallrunning or ran out of speed => don't allow him to wallrun again
-                // kick off from the wall a little 
+                stopWallRun(); // user decided to stop wallrunning or ran out of speed => don't allow him to wallrun again
             }
 
             if (inputJump == true) // player requested a wallkick
