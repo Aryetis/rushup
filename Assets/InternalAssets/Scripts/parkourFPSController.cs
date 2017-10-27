@@ -24,6 +24,7 @@ public class parkourFPSController : MonoBehaviour
     [SerializeField] private float maxNominalSpeed = 50f;                          // Player's max speed without any killSpeedBonus
     private Camera camera = null;                                                   // Player's Camera
     private CharacterController controller;                                         // Player's controller
+    private CapsuleCollider collider;
     private float inputHorizontal;                                                  // [-1;1] horizontal input for strafes (smoothed)
     private float inputVertical;                                                    // [-1;1] horizontal input for running/reversing (smoothed)
     private float prevInputHorizontal;                                              // Previous frame's inputHorizontal
@@ -39,7 +40,7 @@ public class parkourFPSController : MonoBehaviour
     private bool grounded;      // Not using controller.isGrounded value because result is based on the PREVIOUS MOVE state
                                 // Resulting in unreliable state when running up on slanted floors
                                 // ( https://forum.unity.com/threads/charactercontroller-isgrounded-returning-unreliable-state.494786/ ) 
-    private bool hitByBullet;
+    private bool hitByBullet = false;
     private Vector3 collisionDirection;
     private float bulletHitMomentum = 0f;
 
@@ -76,7 +77,12 @@ public class parkourFPSController : MonoBehaviour
 
     [Space(10)]
     [Header("Sliding State Variables")]
-    [SerializeField] private float slidingMinSpeed = 10f;                           // TODO
+    [SerializeField] private float slidingMinSpeed = 10f;   // TODO
+    [SerializeField] private float crouchingHeight = 0.3f;
+    [SerializeField] private float slidingDecelerationFactor = 0.5f;                // will decelerate at "runningDecelerationFactor" the speed it accelerates
+
+    private float originalHeight;
+
 
     [Space(10)]
     [Header("Attacking State Variables")]
@@ -87,19 +93,17 @@ public class parkourFPSController : MonoBehaviour
     [Header("Mouse Properties")]
     [SerializeField] public MouseLook mouseLook = null;                             // Standard Asset script taking care of moving the camera according to mouse inputs
                                                                                     // public because UI must unlock cursor to allow player to click on buttons
-
-
-
-
-	// Use this for initialization
-	void Start ()
+    // Use this for initialization
+    void Start ()
     {
         camera = Camera.main;
         controller = GetComponent<CharacterController>();
         controller.detectCollisions = true;
         mouseLook.Init(transform , camera.transform);
-        hitByBullet = false;
 
+        collider = GetComponent<CapsuleCollider>();
+
+        originalHeight = controller.height;
         // Teleport Player to the ground to be sure of its playerState at startup
         RaycastHit hit;
         if(Physics.Raycast(transform.position, Vector3.down, out hit, 1000))
@@ -123,6 +127,7 @@ public class parkourFPSController : MonoBehaviour
         inputHorizontal = CrossPlatformInputManager.GetAxis("Horizontal"); 
         inputVertical = CrossPlatformInputManager.GetAxis("Vertical");
         inputJump = CrossPlatformInputManager.GetButton("Jump");
+        inputSlide = CrossPlatformInputManager.GetButton("Slide");
 
         /*** UPDATING speed (for UI and various update[State]() ***/
         updateSpeed();
@@ -304,6 +309,18 @@ public class parkourFPSController : MonoBehaviour
                 playerState = PlayerState.jumping;
                 moveDir.y = jumpStrength + jumpStrength*(speed/maxNominalSpeed)*(jumpHeightSpeedFactor-1); 
                 // "standard jump height" + "speed dependent height jump" * (jumpHeightSpeedFactor-1)
+            }
+
+            // Slide request
+            if(inputSlide && !inputJump)
+            {
+                playerState = PlayerState.sliding;
+                controller.height = crouchingHeight;
+                controller.center = new Vector3(controller.center.x,
+                    controller.center.y * crouchingHeight / originalHeight,
+                    controller.center.z);
+
+                collider.height = crouchingHeight;
             }
         }
         else // Player is running from an edge => change state to "jumping" and override current update()'s cycle result
@@ -545,6 +562,49 @@ public class parkourFPSController : MonoBehaviour
 
     void updateSliding()
     {
+        RaycastHit hit;
+        bool canStand = !Physics.Raycast(controller.transform.position, Vector3.up, out hit, originalHeight + controller.skinWidth + slopeClimbingPermissionStep);
+
+        if(canStand)
+        {
+            if(!inputSlide)
+            {
+                playerState = PlayerState.running;
+                controller.height = originalHeight;
+                controller.center = new Vector3(controller.center.x,
+                    controller.center.y * originalHeight / crouchingHeight,
+                    controller.center.z);
+
+                collider.height = originalHeight;
+
+                camera.transform.localPosition = new Vector3(camera.transform.localPosition.x,
+                       camera.transform.localPosition.y * originalHeight / crouchingHeight,
+                       camera.transform.localPosition.z);
+            } else
+            {
+                moveDir = Vector3.forward;
+                runningMomentum -= slidingDecelerationFactor * Time.deltaTime;
+                if (runningMomentum < 0)
+                {
+                    runningMomentum = 0;
+                }
+
+                Vector3 foo = moveDir * ((maxNominalSpeed - runningMinSpeed) * (runningMomentum / runningRampUpTime)); // Calculate current inputs impact on moveDir
+                moveDir = foo * (1 - runningInertiaFactor) + prevMoveDir * runningInertiaFactor; // mix current inputs vector and previous one according to runningInertiaFactor
+            }
+        } else
+        {
+            moveDir = Vector3.forward;
+            runningMomentum -= slidingDecelerationFactor * Time.deltaTime;
+            if (runningMomentum < 0)
+            {
+                runningMomentum = 0;
+            }
+
+            Vector3 foo = moveDir * (runningMinSpeed + ((maxNominalSpeed - runningMinSpeed) * (runningMomentum / runningRampUpTime))); // Calculate current inputs impact on moveDir
+            moveDir = foo * (1 - runningInertiaFactor) + prevMoveDir * runningInertiaFactor; // mix current inputs vector and previous one according to runningInertiaFactor
+        }
+    
         // Update Camera look and freedom according to playerState
         updateCamera();
 
@@ -582,6 +642,14 @@ public class parkourFPSController : MonoBehaviour
     {
         switch(playerState)
         {
+
+            case PlayerState.sliding:
+                camera.transform.localPosition = new Vector3(camera.transform.localPosition.x, 
+                    camera.transform.localPosition.y * crouchingHeight / originalHeight, 
+                    camera.transform.localPosition.z);
+
+                break;
+
             default:
             {   // Allow rotation on every axis by default
                 mouseLook.LookRotation (transform, camera.transform);
