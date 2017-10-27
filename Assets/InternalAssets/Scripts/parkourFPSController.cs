@@ -21,7 +21,7 @@ public class parkourFPSController : MonoBehaviour
     [SerializeField] private float gravity = 20f;                                   // Gravity applied to the vector on the Y axis
     [SerializeField] private float jumpStrength = 20f;                              // Impulse given at the start of a jump
     [SerializeField] private float slopeClimbingPermissionStep = 0.25f;             // Height shift allowed on Y axis between two frames to considere if the player is grounded or not 
-    [SerializeField] private float maxNominalSpeed = 100f;                          // Player's max speed without any killSpeedBonus
+    [SerializeField] private float maxNominalSpeed = 50f;                          // Player's max speed without any killSpeedBonus
     private Camera camera = null;                                                   // Player's Camera
     private CharacterController controller;                                         // Player's controller
     private float inputHorizontal;                                                  // [-1;1] horizontal input for strafes (smoothed)
@@ -121,8 +121,7 @@ public class parkourFPSController : MonoBehaviour
         inputJump = CrossPlatformInputManager.GetButton("Jump");
 
         /*** UPDATING speed (for UI and various update[State]() ***/
-        speed = (float) Mathf.Sqrt(controller.velocity.x * controller.velocity.x +
-            controller.velocity.z * controller.velocity.z);
+        updateSpeed();
 
         /*** UPDATING grounded STATE ***/
         RaycastHit hit;
@@ -264,7 +263,7 @@ public class parkourFPSController : MonoBehaviour
             {   
                 runningToJumpingImpulse = moveDir;
                 playerState = PlayerState.jumping;
-                moveDir.y = jumpStrength + jumpStrength*(speed/maxNominalSpeed)*(jumpHeightSpeedFactor-1); 
+                moveDir.y = jumpStrength;// + jumpStrength*(speed/maxNominalSpeed)*(jumpHeightSpeedFactor-1); 
                 // "standard jump height" + "speed dependent height jump" * (jumpHeightSpeedFactor-1)
             }
         }
@@ -322,13 +321,14 @@ public class parkourFPSController : MonoBehaviour
         airControlDir.Normalize();
        
         // GLUT : hardcoding a airControlFactor to decide how much control the player has over his initial impulse, because lack of time to test (see github for previous attempt, it worked but was pretty unplayable)
-        airControlDir.x = (1-airControlFactor)*previousAirControlDir.x + airControlDir.x*airControlFactor ;
-        airControlDir.z = (1-airControlFactor)*previousAirControlDir.z + airControlDir.z*airControlFactor ;
+        airControlDir.x = previousAirControlDir.x + airControlDir.x*airControlFactor ;
+        airControlDir.z = previousAirControlDir.z + airControlDir.z*airControlFactor ;
 
         //Combine moveDir and airControlDir according to airInertiaFactor factor
         moveDir = moveDir + airControlDir;
 
-        // GLUT Patching speed so it doesn't go above maxSpeed, shouldn't happen but unity magic and probably because speed depends of x AND y and I'm using on x and y independantly 
+        // GLUT Patching speed so it doesn't go above maxSpeed, shouldn't happen but unity magic and probably because speed depends of x AND y and I'm using on x and y independantly $
+        updateSpeed(); // actualize speed to check moveDir current norm
         if (speed >= maxNominalSpeed)
             moveDir = moveDir.normalized * maxNominalSpeed;
 
@@ -550,6 +550,14 @@ public class parkourFPSController : MonoBehaviour
                 break;
             }
         }
+    }
+
+
+
+    private void updateSpeed()
+    {
+        speed = (float) Mathf.Sqrt(controller.velocity.x * controller.velocity.x +
+            controller.velocity.z * controller.velocity.z);
     }
 
 
