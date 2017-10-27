@@ -423,7 +423,6 @@ public class parkourFPSController : MonoBehaviour
 
     void stopWallRun()
     {
-        canWallRun = false; // will be reseted once the player hit the floor 
         wallRunTime = 0.0f;
         playerState = PlayerState.jumping;
     }
