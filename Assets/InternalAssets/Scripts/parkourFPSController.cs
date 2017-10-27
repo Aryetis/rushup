@@ -109,7 +109,10 @@ public class parkourFPSController : MonoBehaviour
         }
 	}
 
-
+    void OnCollisionEnter(Collision col)
+    {
+        Debug.Log("collision detected");   
+    }
 	
 	// Update is called once per frame
 	void Update ()
@@ -263,7 +266,7 @@ public class parkourFPSController : MonoBehaviour
             {   
                 runningToJumpingImpulse = moveDir;
                 playerState = PlayerState.jumping;
-                moveDir.y = jumpStrength;// + jumpStrength*(speed/maxNominalSpeed)*(jumpHeightSpeedFactor-1); 
+                moveDir.y = jumpStrength + jumpStrength*(speed/maxNominalSpeed)*(jumpHeightSpeedFactor-1); 
                 // "standard jump height" + "speed dependent height jump" * (jumpHeightSpeedFactor-1)
             }
         }
@@ -302,13 +305,13 @@ public class parkourFPSController : MonoBehaviour
         }
 
         // Do a wall climb check and I need to clean up these hits.
-        RaycastHit wallClimbHit = DoWallClimbCheck(new Ray(transform.position, 
-            transform.TransformDirection(Vector3.forward).normalized * 0.1f));
-        if (wallClimbHit.collider != null)
-        {
-            playerState = PlayerState.wallclimbing;
-            return;
-        }
+//        RaycastHit wallClimbHit = DoWallClimbCheck(new Ray(transform.position, 
+//            transform.TransformDirection(Vector3.forward).normalized * 0.1f));
+//        if (wallClimbHit.collider != null)
+//        {
+//            playerState = PlayerState.wallclimbing;
+//            return;
+//        }
 
 
         // Set moveDir as impulse given on ground (will be countered as time goes by, by the airControlDir vector)
