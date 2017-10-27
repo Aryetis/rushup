@@ -11,7 +11,7 @@ using UnityEngine;
 public class parkourFPSController : MonoBehaviour
 {
     /* Player's state variable*/
-    private enum PlayerState {running, jumping, walling, sliding, edging, pushing, attacking}; // Describing current state of the player : edging <=> grabed the edge of a cliff; pushing <=> pushing up from edging state; etc
+    private enum PlayerState {running, jumping, wallrunning, wallclimbing, sliding, edging, pushing, attacking}; // Describing current state of the player : edging <=> grabed the edge of a cliff; pushing <=> pushing up from edging state; etc
     private bool canWallRun = false;                                                // Describe if player is in a state that allows for him to start wallrunning (can't wallrun during a slide, duh)
     private bool canWallClimb = false;                                              // Describe if player is in a state that allows for him to start wallclimbing 
     private bool canAttack = false;                                                 // Describe if player is in a state that allows for him to start attacking
@@ -21,7 +21,7 @@ public class parkourFPSController : MonoBehaviour
     [SerializeField] private float gravity = 20f;                                   // Gravity applied to the vector on the Y axis
     [SerializeField] private float jumpStrength = 20f;                              // Impulse given at the start of a jump
     [SerializeField] private float slopeClimbingPermissionStep = 0.25f;             // Height shift allowed on Y axis between two frames to considere if the player is grounded or not 
-    [SerializeField] private float maxNominalSpeed = 100f;                          // Player's max speed without any killSpeedBonus
+    [SerializeField] private float maxNominalSpeed = 50f;                          // Player's max speed without any killSpeedBonus
     private Camera camera = null;                                                   // Player's Camera
     private CharacterController controller;                                         // Player's controller
     private float inputHorizontal;                                                  // [-1;1] horizontal input for strafes (smoothed)
@@ -69,6 +69,7 @@ public class parkourFPSController : MonoBehaviour
     [Space(10)]
     [Header("Wallclimb State Variables")]
     [SerializeField] private float wallclimbImpulse = 50f;                          // TODO
+    private float wallclimbingTime = 0f;                                                   // How long the player has been wallclimbing
 
     [Space(10)]
     [Header("Sliding State Variables")]
@@ -108,7 +109,10 @@ public class parkourFPSController : MonoBehaviour
         }
 	}
 
-
+    void OnCollisionEnter(Collision col)
+    {
+        Debug.Log("collision detected");   
+    }
 	
 	// Update is called once per frame
 	void Update ()
@@ -120,8 +124,7 @@ public class parkourFPSController : MonoBehaviour
         inputJump = CrossPlatformInputManager.GetButton("Jump");
 
         /*** UPDATING speed (for UI and various update[State]() ***/
-        speed = (float) Mathf.Sqrt(controller.velocity.x * controller.velocity.x +
-            controller.velocity.z * controller.velocity.z);
+        updateSpeed();
 
         /*** UPDATING grounded STATE ***/
         RaycastHit hit;
@@ -140,9 +143,14 @@ public class parkourFPSController : MonoBehaviour
                 updateJumping();
                 break; 
             }
-            case PlayerState.walling:
+            case PlayerState.wallrunning:
             {
-                updateWalling();
+                updateWallrunning();
+                break; 
+            }
+            case PlayerState.wallclimbing:
+            {
+                updateWallclimbing();
                 break; 
             }
             case PlayerState.sliding:
@@ -292,9 +300,19 @@ public class parkourFPSController : MonoBehaviour
         wallHit = checkAccessibleWallrun();
         if (wallHit.collider != null)
         {
-            playerState = PlayerState.walling;
+            playerState = PlayerState.wallrunning;
             return;
         }
+
+        // Do a wall climb check and I need to clean up these hits.
+//        RaycastHit wallClimbHit = DoWallClimbCheck(new Ray(transform.position, 
+//            transform.TransformDirection(Vector3.forward).normalized * 0.1f));
+//        if (wallClimbHit.collider != null)
+//        {
+//            playerState = PlayerState.wallclimbing;
+//            return;
+//        }
+
 
         // Set moveDir as impulse given on ground (will be countered as time goes by, by the airControlDir vector)
         moveDir.x = runningToJumpingImpulse.x;
@@ -306,19 +324,21 @@ public class parkourFPSController : MonoBehaviour
         airControlDir.Normalize();
        
         // GLUT : hardcoding a airControlFactor to decide how much control the player has over his initial impulse, because lack of time to test (see github for previous attempt, it worked but was pretty unplayable)
-        airControlDir.x = previousAirControlDir.x + airControlDir.x * airControlFactor ;
-        airControlDir.z = previousAirControlDir.z + airControlDir.z * airControlFactor ;
+        airControlDir.x = previousAirControlDir.x + airControlDir.x*airControlFactor ;
+        airControlDir.z = previousAirControlDir.z + airControlDir.z*airControlFactor ;
 
         //Combine moveDir and airControlDir according to airInertiaFactor factor
         moveDir = moveDir + airControlDir;
 
-        // GLUT Patching speed so it doesn't go above maxSpeed, shouldn't happen but unity magic and probably because speed depends of x AND y and I'm using on x and y independantly 
-        if (speed >= maxNominalSpeed)
+        // GLUT Patching speed so it doesn't go above maxSpeed, shouldn't happen but unity magic and probably because speed depends of x AND y and I'm using on x and y independantly $
+        if (moveDir.magnitude >= maxNominalSpeed)
+        {
             moveDir = moveDir.normalized * maxNominalSpeed;
+        }
 
         // Check that player isn't bashing its head on the ceiling
-        RaycastHit hit;
-        if (Physics.SphereCast(transform.position, controller.radius, Vector3.up, out hit,
+        RaycastHit ceilingHit;
+        if (Physics.SphereCast(transform.position, controller.radius, Vector3.up, out ceilingHit,
                 controller.height / 2f, Physics.AllLayers, QueryTriggerInteraction.Ignore)) // player hit its head during a jump    
         {
             moveDir.y = 0;
@@ -334,6 +354,8 @@ public class parkourFPSController : MonoBehaviour
         // Keeping track of airControlDir as we don't want to be able to immediately transform airControlDir from full left to full right, we must fight it too
         previousAirControlDir = airControlDir;
     }
+
+
 
     RaycastHit checkAccessibleWallrun()
     {
@@ -362,7 +384,9 @@ public class parkourFPSController : MonoBehaviour
         }
     }
 
-    void updateWalling()
+
+
+    void updateWallrunning()
     {
         // Update Camera look and freedom according to playerState
         updateCamera();
@@ -378,7 +402,7 @@ public class parkourFPSController : MonoBehaviour
                 return;
             }
 
-            playerState = PlayerState.walling;
+            playerState = PlayerState.wallrunning;
             float previousJumpHeight = moveDir.y;
 
             Vector3 crossProduct = Vector3.Cross(Vector3.up, wallHit.normal);
@@ -423,9 +447,65 @@ public class parkourFPSController : MonoBehaviour
 
     void stopWallRun()
     {
-        canWallRun = false; // will be reseted once the player hit the floor 
         wallRunTime = 0.0f;
         playerState = PlayerState.jumping;
+    }
+
+
+    void updateWallclimbing()
+    {
+        Debug.Log("updateWallclimbing()");
+        // Update Camera look and freedom according to playerState
+        updateCamera();
+
+        bool moving = (inputHorizontal!=0 || inputVertical!=0) ? true : false;
+        if (!moving)
+        {
+            wallclimbingTime = 0.0f;
+            if (playerState == PlayerState.wallclimbing)
+                canWallClimb = false;
+            playerState = PlayerState.jumping;
+            return;
+        }
+
+        Ray forwardRay = new Ray(transform.position, transform.TransformDirection(Vector3.forward).normalized);
+        forwardRay.direction *= 0.1f;
+
+        RaycastHit hit = DoWallClimbCheck(forwardRay);
+        if (canWallClimb && hit.collider != null && 
+            wallclimbingTime < 0.5f && Vector3.Angle(forwardRay.direction, hit.normal) > 165){
+
+            wallclimbingTime += Time.deltaTime;
+
+            // Look up. Disabled for now.
+            Quaternion lookDirection = Quaternion.LookRotation(hit.normal * -1);
+            transform.rotation = Quaternion.Slerp(transform.rotation, lookDirection, 3.5f * Time.deltaTime);
+            //camera.transform.Rotate(-85f * (wallclimbingTime / 0.5f), 0f, 0f); //            ^ Magic number for tweaking look time
+
+            // Move up.
+            moveDir += transform.TransformDirection(Vector3.up);
+            moveDir.Normalize();
+            moveDir *= runningMinSpeed;
+
+            playerState = PlayerState.wallclimbing;
+        }
+        else 
+        {
+            if (playerState == PlayerState.wallclimbing)
+                canWallClimb = false;
+            wallclimbingTime = 0f;
+            playerState = PlayerState.jumping;
+        }
+    }
+
+    RaycastHit DoWallClimbCheck(Ray forwardRay)
+    {
+        RaycastHit hit;
+
+        Physics.Raycast(forwardRay.origin, forwardRay.direction, out hit, 1f);
+
+        return hit;
+
     }
 
 
@@ -474,6 +554,14 @@ public class parkourFPSController : MonoBehaviour
                 break;
             }
         }
+    }
+
+
+
+    private void updateSpeed()
+    {
+        speed = (float) Mathf.Sqrt(controller.velocity.x * controller.velocity.x +
+            controller.velocity.z * controller.velocity.z);
     }
 
 
