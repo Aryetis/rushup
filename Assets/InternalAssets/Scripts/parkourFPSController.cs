@@ -60,7 +60,7 @@ public class parkourFPSController : MonoBehaviour
     [Header("Wallrun State Variables")]
     [SerializeField] private float wallRunMaxTime = 5.0f;                           // How long the player can wallrun TODO : change it to minSpeedWallRun
     [SerializeField] float wallrunMaxSpeed = 50f;                                   // Max Speed during wallrun (speed will increase over time)
-    [SerializeField] float kickImpulse = 20f;                                       // TODO
+    [SerializeField] float wallrunImpulse = 20f;                                    // TODO
     [SerializeField] float kickAngleHorizontal = 30f;                               // TODO
     [SerializeField] float kickAngleVertical = 30f;                                 // TODO
     private RaycastHit wallHit;                                                     // Target the wall the player is/can currently wallruning on
@@ -68,6 +68,7 @@ public class parkourFPSController : MonoBehaviour
 
     [Space(10)]
     [Header("Wallclimb State Variables")]
+    [SerializeField] private float wallclimbImpulse = 50f;                          // TODO
 
     [Space(10)]
     [Header("Sliding State Variables")]
@@ -75,7 +76,7 @@ public class parkourFPSController : MonoBehaviour
 
     [Space(10)]
     [Header("Attacking State Variables")]
-    [SerializeField] private float impulse = 50f;                                   // TODO
+    [SerializeField] private float attackingImpulse = 50f;                          // TODO
     [SerializeField] private float killSpeedBonus = 5f;                             // TODO Speed boost given immediately for each ennemy killed
 
     [Space(10)]
