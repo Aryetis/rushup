@@ -10,64 +10,80 @@ using UnityEngine;
 
 public class parkourFPSController : MonoBehaviour
 {
-    private enum PlayerState {running, jumping, walling, sliding, edging, pushing};
-    // Describing current state of the player : edging <=> grabed the edge of a cliff
-    //                                          pushing <=> pushing up from edging state
+    /* Player's state variable*/
+    private enum PlayerState {running, jumping, walling, sliding, edging, pushing, attacking}; // Describing current state of the player : edging <=> grabed the edge of a cliff; pushing <=> pushing up from edging state; etc
+    private bool canWallRun = false;                                                // Describe if player is in a state that allows for him to start wallrunning (can't wallrun during a slide, duh)
+    private bool canWallClimb = false;                                              // Describe if player is in a state that allows for him to start wallclimbing 
+    private bool canAttack = false;                                                 // Describe if player is in a state that allows for him to start attacking
+    private bool canSlide = false;                                                  // Describe if player is in a state that allows for him to start sliding
 
     [Header("Global Variables")]
-    [SerializeField] private float gravity = 20f;                               // Gravity applied to the vector on the Y axis
-    [SerializeField] private float jumpStrength = 20f;                          // Impulse given at the start of a jump
-    [SerializeField] private float jumpHeightSpeedFactor = 1.5f;                // At full speed player will jump at jumpHeightSpeedFactor * the height of a basic jump
-    [SerializeField] private float killSpeedBonus = 5f;                         // Speed boost given immediately for each ennemy killed
-    [SerializeField] private float slopeClimbingPermissionStep = 0.25f;         // Height shift allowed on Y axis between two frames to considere if the player is grounded or not 
-    [SerializeField] private float maxNominalSpeed = 100f;                      // Player's max speed without any killSpeedBonus
+    [SerializeField] private float gravity = 20f;                                   // Gravity applied to the vector on the Y axis
+    [SerializeField] private float jumpStrength = 20f;                              // Impulse given at the start of a jump
+    [SerializeField] private float slopeClimbingPermissionStep = 0.25f;             // Height shift allowed on Y axis between two frames to considere if the player is grounded or not 
+    [SerializeField] private float maxNominalSpeed = 100f;                          // Player's max speed without any killSpeedBonus
+    private Camera camera = null;                                                   // Player's Camera
+    private CharacterController controller;                                         // Player's controller
+    private float inputHorizontal;                                                  // [-1;1] horizontal input for strafes (smoothed)
+    private float inputVertical;                                                    // [-1;1] horizontal input for running/reversing (smoothed)
+    private float prevInputHorizontal;                                              // Previous frame's inputHorizontal
+    private float prevInputVertical;                                                // Previous frame's inputVertical
+    private bool inputJump;                                                         // is jump key pressed ?
+    private bool inputSlide;                                                        // is sllding key pressed ?
+    private bool inputAttacking;                                                    // TODO is attacking key pressed ?
+    private static PlayerState playerState = PlayerState.running;                   // Describe current player state
+    private static float speed;                                                     // Player speed along x and z axis => NOT taking into account Y axis (no falling speed displayed)
+    private Vector3 moveDir=Vector3.zero;                                           // Current frame player's movement vector
+    private Vector3 prevMoveDir=Vector3.zero;                                       // Previous frame player's movement
+    private bool prevGroundedState;                                                 // Previous frame's grounded
+    private bool grounded;                                                          // Not using controller.isGrounded value because result is based on the PREVIOUS MOVE state
+                                                                                    // Resulting in unreliable state when running up on slanted floors
+                                                                                    // ( https://forum.unity.com/threads/charactercontroller-isgrounded-returning-unreliable-state.494786/ ) 
 
     [Space(10)]
     [Header("Running State Variables")]
-    [SerializeField] private float runningMinSpeed = 10f;                       // Player will start running at this speed
-    [SerializeField] private float runningRampUpTime = 0.2f;                    // Time in seconds for player to reach maxNominalSpeed (in seconds)
-    [SerializeField] private float runningInertiaFactor = 0.9f;                 // [0;1] the bigger the less current input will impact the outcome / the more slippery the player wil be
-    [SerializeField] private float runningDecelerationFactor = 0.5f;            // will decelerate at "runningDecelerationFactor" the speed it accelerates
-    private float runningMomentum = 0f;                                         // [0;runningRampUpTime] "porcentage" of the current speed wihtout acknoledging minSpeed
+    [SerializeField] private float runningMinSpeed = 10f;                           // Player will start running at this speed
+    [SerializeField] private float runningRampUpTime = 0.2f;                        // Time in seconds for player to reach maxNominalSpeed (in seconds)
+    [Range(0.0f, 1.0f)] [SerializeField] private float runningInertiaFactor = 0.9f; // [0;1] the bigger the less current input will impact the outcome / the more slippery the player wil be
+    [SerializeField] private float runningDecelerationFactor = 0.5f;                // will decelerate at "runningDecelerationFactor" the speed it accelerates
+    [SerializeField] private float jumpHeightSpeedFactor = 1.5f;                    // At full speed player will jump at jumpHeightSpeedFactor * the height of a basic jump
+    private float runningMomentum = 0f;                                             // [0;runningRampUpTime] "porcentage" of the current speed wihtout acknoledging minSpeed
+
 
     [Space(10)]
     [Header("Airborne State Variables")]
-    [SerializeField] private float airControlFactor = 2.0f;                     // Determine how much the inputs performed by the player while airborne impact his direction
-    private Vector3 runningToJumpingImpulse = Vector3.zero;                     // moveDir vector at the moment of the jump, used to kickstart the direction of the jump
-    private Vector3 previousAirControlDir;                                      // direction of the airborne player at the previous frame
+    [SerializeField] private float airControlFactor = 2.0f;                         // Determine how much the inputs performed by the player while airborne impact his direction
+    private Vector3 runningToJumpingImpulse = Vector3.zero;                         // moveDir vector at the moment of the jump, used to kickstart the direction of the jump
+    private Vector3 previousAirControlDir;                                          // direction of the airborne player at the previous frame
 
     [Space(10)]
     [Header("Wallrun State Variables")]
-    [SerializeField] private float wallRunMaxTime = 5.0f;                       // How long the player can wallrun TODO : change it to minSpeedWallRun
-    [SerializeField] float wallrunMaxSpeed = 50f;                               // Max Speed during wallrun (speed will increase over time)
+    [SerializeField] private float wallRunMaxTime = 5.0f;                           // How long the player can wallrun TODO : change it to minSpeedWallRun
+    [SerializeField] float wallrunMaxSpeed = 50f;                                   // Max Speed during wallrun (speed will increase over time)
+    [SerializeField] float kickImpulse = 20f;                                       // TODO
+    [SerializeField] float kickAngleHorizontal = 30f;                               // TODO
+    [SerializeField] float kickAngleVertical = 30f;                                 // TODO
+    private RaycastHit wallHit;                                                     // Target the wall the player is/can currently wallruning on
+    private float wallRunTime = 0.0f;                                               // How long player has been wallrunning
 
+    [Space(10)]
+    [Header("Wallclimb State Variables")]
 
-    //TODO add acceleration factor 
-    private bool canWallRun = false;                                            // Check if player is in a state that allows for him to start wallrunning (can't wallrun during a slide, duh)
-    private float wallRunTime = 0.0f;                                           // How long player has been wallrunning
-    private RaycastHit wallHit;                                                 // Target the wall the player is/can currently wallruning on
+    [Space(10)]
+    [Header("Sliding State Variables")]
+    [SerializeField] private float slidingMinSpeed = 10f;                           // TODO
 
+    [Space(10)]
+    [Header("Attacking State Variables")]
+    [SerializeField] private float impulse = 50f;                                   // TODO
+    [SerializeField] private float killSpeedBonus = 5f;                             // TODO Speed boost given immediately for each ennemy killed
 
     [Space(10)]
     [Header("Mouse Properties")]
-    [SerializeField] public MouseLook mouseLook = null;                         // Standard Asset script taking care of moving the camera according to mouse inputs
-                                                                                // public because UI must unlock cursor to allow player to click on buttons
-    private Camera camera = null;                                               // 
-    private CharacterController controller;                                     //
-    private static PlayerState playerState = PlayerState.running;               //
-    private Vector3 moveDir=Vector3.zero;                                       //
-    private Vector3 prevMoveDir=Vector3.zero;                                   //
-    private bool moving, prevGroundedState;                                     //
-    private static float speed;                                                 // Player speed along x and z axis => NOT taking into account Y axis (no falling speed displayed)
-    private float inputHorizontal;                                              //
-    private float inputVertical;                                                //
-    private float prevInputHorizontal;                                          //
-    private float prevInputVertical;                                            //
-    private bool inputJump;                                                     //
-    private bool inputSlide;                                                    //
-    private bool grounded;                                                      // Not using controller.isGrounded value because result is based on the PREVIOUS MOVE state
-                                                                                // Resulting in unreliable state when running up on slanted floors
-                                                                                // ( https://forum.unity.com/threads/charactercontroller-isgrounded-returning-unreliable-state.494786/ ) 
+    [SerializeField] public MouseLook mouseLook = null;                             // Standard Asset script taking care of moving the camera according to mouse inputs
+                                                                                    // public because UI must unlock cursor to allow player to click on buttons
+
+
 
 
 	// Use this for initialization
@@ -143,6 +159,11 @@ public class parkourFPSController : MonoBehaviour
                 updatePushing();
                 break; 
             }
+            case PlayerState.attacking:
+            {
+                updateAttacking();
+                break; 
+            }
             default:
             { break; }
         }
@@ -197,7 +218,7 @@ public class parkourFPSController : MonoBehaviour
             }
 
             // Build up the "momementum" as long as player is pressing "moving forward/strafing"
-            moving = (inputHorizontal!=0 || inputVertical!=0) ? true : false;
+            bool moving = (inputHorizontal!=0 || inputVertical!=0) ? true : false;
             if (moving && runningMomentum <= runningRampUpTime)
             {
                 runningMomentum += Time.deltaTime; // build up "temporal" momentum 
@@ -425,6 +446,15 @@ public class parkourFPSController : MonoBehaviour
 
 
     void updatePushing()
+    {
+        // Update Camera look and freedom according to playerState
+        updateCamera();
+
+    }
+
+
+
+    void updateAttacking()
     {
         // Update Camera look and freedom according to playerState
         updateCamera();
