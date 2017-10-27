@@ -2,6 +2,7 @@
 using UnityStandardAssets.Characters.FirstPerson; // only for MouseLook
 using UnityStandardAssets.CrossPlatformInput;     // TODO : check if controls are working on Android ... it shoulds otherwise there's close to no point using CrossPlatformInput
 using UnityEngine;
+using UnityEditor;
 
 /* TODO (after the project is "done") list :
  *      Put different factor for walking in reverse
@@ -9,11 +10,35 @@ using UnityEngine;
  *      same for runningToJumpingImpulse used for wallkick
  */
 
+/*
+ * ReadOnlyAttribute class shamelessely stolen from It3ration & scottmontgomerie: 
+ * http://answers.unity3d.com/questions/489942/how-to-make-a-readonly-property-in-inspector.html
+*  TODO : Beautify the whole inspector for this class using [CustomEditor(typeof(parkourFPSController))} and OnInspectorGUI()
+ */
+public class ReadOnlyAttribute : PropertyAttribute
+{}
+[CustomPropertyDrawer(typeof(ReadOnlyAttribute))]
+public class ReadOnlyDrawer : PropertyDrawer
+{
+    public override float GetPropertyHeight(SerializedProperty property,
+        GUIContent label)
+    {
+        return EditorGUI.GetPropertyHeight(property, label, true);
+    }
+
+    public override void OnGUI(Rect position,
+        SerializedProperty property,
+        GUIContent label)
+    {
+        GUI.enabled = false;
+        EditorGUI.PropertyField(position, property, label, true);
+        GUI.enabled = true;
+    }
+}
+
 public class parkourFPSController : MonoBehaviour
 {
-    Ray debugRay;
-
-
+Ray debugRay;
     /* Player's state variable*/
     private enum PlayerState {running, jumping, wallrunning, wallclimbing, sliding, edging, pushing, attacking, ejecting}; // Describing current state of the player : edging <=> grabed the edge of a cliff; pushing <=> pushing up from edging state; etc
     private bool canWallRun = false;                                                // Describe if player is in a state that allows for him to start wallrunning (can't wallrun during a slide, duh)
@@ -65,7 +90,7 @@ public class parkourFPSController : MonoBehaviour
     [Header("Wallrun State Variables")]
     [SerializeField] float wallrunMaxSpeed = 50f;                                   // Max Speed during wallrun (speed will increase over time)
     [SerializeField] private float wallrunningGravityFactor = 2f;                   // The bigger => the less gravity will impact player during wallrun
-    [SerializeField] private float wallrunningDecelerationFactor = 0.0025f;         // Player's momentum will decrease by deltaTime*wallrunningDecelerationFactor at each frame
+    [Range(0.0f, 0.1f)] [SerializeField] private float wallrunningDecelerationFactor = 0.025f;         // Player's momentum will decrease by deltaTime*wallrunningDecelerationFactor at each frame
     [SerializeField] private float wallrunCoolDown = 0.25f;                         // Prevent player from hitting too much wallrun in a row
     [SerializeField] private float wallRunMinSpeed = 20f;                           // If player goes under wallRunMinSpeed he will fall from the wall 
     [SerializeField] private float wallkickHeight = 20f;                            // A wallkick (jump when wallruning) gives the player a boost on the Y axis of wallkickHeight 
@@ -79,7 +104,9 @@ public class parkourFPSController : MonoBehaviour
     [Header("Wallclimb State Variables")]
     [SerializeField] private float snapCameraSpeed = 3f;                            // The smallest the faster the camera will snap on its wallrun position
     [SerializeField] private float wallclimbImpulse = 50f;                          // TODO
-    [SerializeField] private float initialVerticalImpulse = 10f;
+    [SerializeField] private float initialVerticalImpulse = 10f;    
+    [ReadOnly] public string wallClimbAngle = "(90-wallrunEnterAngle)*2";           // Just indicating to LDs that wallClimbAngle is basically whatever angle is remaining 
+
     private float wallclimbingTime = 0f;                                            // How long the player has been wallclimbing
     private float ongoingSnapCameraTime = 0f;
     bool rightImpact;
@@ -407,7 +434,7 @@ Debug.DrawRay(debugRay.origin, debugRay.direction*10);
         }
         else if (leftImpact && leftAngle > 90 && leftAngle < 90+wallrunEnterAngle)
         {
-            wallImpactLeft.normal *= -1;
+            wallImpactLeft.normal *= -1; // for crossProduct
             return wallImpactLeft;
         }
         else
@@ -444,11 +471,11 @@ Debug.DrawRay(debugRay.origin, debugRay.direction*10);
             transform.rotation = Quaternion.Slerp(transform.rotation, lookDirection, 3.5f * Time.deltaTime);
 
             // Decrement momentum 
-//            runningMomentum -= wallrunningDecelerationFactor*Time.deltaTime;
-//            if (runningMomentum < 0)
-//            {
-//                runningMomentum = 0;
-//            }
+            runningMomentum -= wallrunningDecelerationFactor*Time.deltaTime;
+            if (runningMomentum < 0)
+            {
+                runningMomentum = 0;
+            }
 
             // Actualize moveDir
             moveDir = crossProduct;
@@ -473,12 +500,12 @@ Debug.DrawRay(debugRay.origin, debugRay.direction*10);
 
                 // Apply Wallkick 
                 // use wallhit.normal you twat !
-                Vector3 oppositeWallDirection = (rightImpact) ? transform.TransformDirection(Vector3.left) : transform.TransformDirection(Vector3.right);
-                oppositeWallDirection.Normalize();                                          // TODO sometimes direction is incorrect
+//                Vector3 oppositeWallDirection = (rightImpact) ? transform.TransformDirection(Vector3.left) : transform.TransformDirection(Vector3.right);
+//                oppositeWallDirection.Normalize();                                          // TODO sometimes direction is incorrect
 //                runningToJumpingImpulse.x = (crossProduct.x/2+oppositeWallDirection.x/2)*wallkickForceFactor*speed;  // TODO check its norm looks like we wallkick using absurd ammount of force
 //                runningToJumpingImpulse.z = (crossProduct.z/2+oppositeWallDirection.z/2)*wallkickForceFactor*speed;
 
-                debugRay = new Ray (transform.position, oppositeWallDirection);
+                debugRay = new Ray (transform.position, wallHit.normal);
 
                 moveDir.x += wallHit.normal.x * 100f;
                 moveDir.z += wallHit.normal.z * 100f;
