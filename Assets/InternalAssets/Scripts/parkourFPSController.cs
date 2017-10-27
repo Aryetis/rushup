@@ -69,7 +69,8 @@ public class parkourFPSController : MonoBehaviour
     [SerializeField] private float wallrunCoolDown = 0.25f;                         // Prevent player from hitting too much wallrun in a row
     [SerializeField] private float wallRunMinSpeed = 20f;                           // If player goes under wallRunMinSpeed he will fall from the wall 
     [SerializeField] private float wallkickHeight = 20f;                            // A wallkick (jump when wallruning) gives the player a boost on the Y axis of wallkickHeight 
-    [SerializeField] float wallkickForceFactor = 0f;                              // The ammount of force (combined with player's speed) used to eject player from the wall when he is wallkicking
+    [SerializeField] private float wallkickForceFactor = 0f;                        // The ammount of force (combined with player's speed) used to eject player from the wall when he is wallkicking
+    [SerializeField] private float wallrunEnterAngle = 45f;                         // if the player jump on the wall with an angle less than wallrunEnterAngle, he will wallrun it
     private RaycastHit wallHit;                                                     // Target the wall the player is/can currently wallruning on
     private float wallRunTime = 0.0f;                                               // How long player has been wallrunning
     private GameObject previousWallWallran = null;                                  // keep in memory the last wall that has been wallran to prevent player from wallrunning on it two times in a row
@@ -130,6 +131,7 @@ public class parkourFPSController : MonoBehaviour
 	// Update is called once per frame
 	void Update ()
     {
+Debug.DrawRay(debugRay.origin, debugRay.direction*10);
         /*** CAPTURING INPUTS MOVED INSIDE FixedUpdate() ***/
 
         /*** UPDATING speed (for UI and various update[State]() ***/
@@ -208,7 +210,8 @@ public class parkourFPSController : MonoBehaviour
         // Doing this inside FixedUpdate to make sure we didn't miss any inputs in case of lag
         inputHorizontal = CrossPlatformInputManager.GetAxis("Horizontal"); 
         inputVertical = CrossPlatformInputManager.GetAxis("Vertical");
-        inputJump = CrossPlatformInputManager.GetButton("Jump");
+        inputJump = CrossPlatformInputManager.GetButtonDown("Jump"); // Only capture Down Event for jump to avoid situation like : 
+                                                                     // Player running right next to a wall, hit jump => wallrun and immediately after that wallkick
     }
         
 
@@ -337,7 +340,6 @@ public class parkourFPSController : MonoBehaviour
 //            return;
 //        }
 
-
         // Set moveDir as impulse given on ground (will be countered as time goes by, by the airControlDir vector)
         moveDir.x = runningToJumpingImpulse.x;
         moveDir.z = runningToJumpingImpulse.z;
@@ -383,20 +385,27 @@ public class parkourFPSController : MonoBehaviour
 
     RaycastHit checkAccessibleWallrun()
     {
+        // WARNING AT THE MOMENT SOME WALLRUN MIGHT SEEM TO BUG BECAUSE
+        // even if this check returns something correct, when the player will start running he will not have enough speed along the wall's axis to be under the wallrunMinSpeed
+        // => It's not a bug it's a feature
+
         Ray rayRight = new Ray(transform.position, transform.TransformDirection(Vector3.right));
         Ray rayLeft = new Ray(transform.position, transform.TransformDirection(Vector3.left));
 
         RaycastHit wallImpactRight;
         RaycastHit wallImpactLeft;
 
-        rightImpact = Physics.Raycast(rayRight.origin, rayRight.direction, out wallImpactRight, 1f);
-        leftImpact = Physics.Raycast(rayLeft.origin, rayLeft.direction, out wallImpactLeft, 1f);
+        rightImpact = Physics.Raycast(rayRight.origin, rayRight.direction, out wallImpactRight, controller.radius+1f);
+        leftImpact = Physics.Raycast(rayLeft.origin, rayLeft.direction, out wallImpactLeft, controller.radius+1f);
 
-        if (rightImpact && Vector3.Angle(transform.TransformDirection(Vector3.forward), wallImpactRight.normal) > 90)
-        {
+        float rightAngle = Vector3.Angle(transform.TransformDirection(Vector3.forward), wallImpactRight.normal); // Angle(Forward, innerNormal) => if (Angle == 90) <=> Player looking along the wall) 
+        float leftAngle = Vector3.Angle(transform.TransformDirection(Vector3.forward), wallImpactLeft.normal);
+
+        if (rightImpact && rightAngle > 90 && rightAngle < 90+wallrunEnterAngle)
+        { // check if impact && correct side of the wall && angle not too stiff
             return wallImpactRight;
         }
-        else if (leftImpact && Vector3.Angle(transform.TransformDirection(Vector3.forward), wallImpactLeft.normal) > 90)
+        else if (leftImpact && leftAngle > 90 && leftAngle < 90+wallrunEnterAngle)
         {
             wallImpactLeft.normal *= -1;
             return wallImpactLeft;
@@ -463,9 +472,16 @@ public class parkourFPSController : MonoBehaviour
                 stopWallRun();
 
                 // Apply Wallkick 
+                // use wallhit.normal you twat !
                 Vector3 oppositeWallDirection = (rightImpact) ? transform.TransformDirection(Vector3.left) : transform.TransformDirection(Vector3.right);
                 oppositeWallDirection.Normalize();                                          // TODO sometimes direction is incorrect
-                runningToJumpingImpulse = oppositeWallDirection*wallkickForceFactor*speed;  // TODO check its norm looks like we wallkick using absurd ammount of force
+//                runningToJumpingImpulse.x = (crossProduct.x/2+oppositeWallDirection.x/2)*wallkickForceFactor*speed;  // TODO check its norm looks like we wallkick using absurd ammount of force
+//                runningToJumpingImpulse.z = (crossProduct.z/2+oppositeWallDirection.z/2)*wallkickForceFactor*speed;
+
+                debugRay = new Ray (transform.position, oppositeWallDirection);
+
+                moveDir.x += wallHit.normal.x * 100f;
+                moveDir.z += wallHit.normal.z * 100f;
                 moveDir.y += wallkickHeight;                                    // Set wallkick jump's height
             }
         }
