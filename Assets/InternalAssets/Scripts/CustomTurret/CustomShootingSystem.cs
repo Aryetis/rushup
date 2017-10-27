@@ -49,4 +49,6 @@ public class CustomShootingSystem : ShootingSystem
             bullet.GetComponent<Rigidbody>().AddForce(_spawner.transform.forward * _shootingForce);
         }
     }
+
+   
 }
