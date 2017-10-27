@@ -85,6 +85,7 @@ Ray debugRay;
     private Vector3 runningToJumpingImpulse = Vector3.zero;                         // moveDir vector at the moment of the jump, used to kickstart the direction of the jump
     private Vector3 previousAirControlDir;                                          // direction of the airborne player at the previous frame
     private float cooldownLock;                                                     // player just wallkicked => forbid him to wallrun till ejectTime > 0
+    private float isWallKicking;
 
     [Space(10)]
     [Header("Wallrun State Variables")]
@@ -94,8 +95,10 @@ Ray debugRay;
     [SerializeField] private float wallrunCoolDown = 0.25f;                         // Prevent player from hitting too much wallrun in a row
     [SerializeField] private float wallRunMinSpeed = 20f;                           // If player goes under wallRunMinSpeed he will fall from the wall 
     [SerializeField] private float wallkickHeight = 20f;                            // A wallkick (jump when wallruning) gives the player a boost on the Y axis of wallkickHeight 
-    [SerializeField] private float wallkickForceFactor = 0f;                        // The ammount of force (combined with player's speed) used to eject player from the wall when he is wallkicking
+    [SerializeField] private float wallkickForce = 200f;                            // The ammount of force (combined with player's speed) used to eject player from the wall when he is wallkicking
     [SerializeField] private float wallrunEnterAngle = 45f;                         // if the player jump on the wall with an angle less than wallrunEnterAngle, he will wallrun it
+    [SerializeField] private float wallrunExitAngle = 45f;                          // if the player jump on the wall with an angle less than wallrunEnterAngle, he will wallrun it
+    [SerializeField] private float wallrunExitAnimationTime = 0.5f;                 // Time during wich the camera will slerp to the wallkick destination, PLAYERS INPUTS WON'T MATTER during the animation
     private RaycastHit wallHit;                                                     // Target the wall the player is/can currently wallruning on
     private float wallRunTime = 0.0f;                                               // How long player has been wallrunning
     private GameObject previousWallWallran = null;                                  // keep in memory the last wall that has been wallran to prevent player from wallrunning on it two times in a row
@@ -496,20 +499,16 @@ Debug.DrawRay(debugRay.origin, debugRay.direction*10);
 
             if (inputJump == true) // player requested a wallkick
             {
+                // Apply wallkick //TODO : smooth the exit out by adding a flag ? problem can't use mouse input during slerp animation => must be short
+                float wallrunExitAngleAdapated = (leftImpact) ? wallrunExitAngle : -1 *wallrunExitAngle; 
+                transform.rotation = Quaternion.AngleAxis(wallrunExitAngleAdapated, Vector3.up) * transform.rotation ;
+                runningToJumpingImpulse = transform.forward * (speed/wallrunMaxSpeed) * wallkickForce;
+                runningToJumpingImpulse.y = wallkickHeight;
+
+                // Set up the wallkick animation timer for updateJumping()
+                isWallKicking = wallrunExitAnimationTime;
+
                 stopWallRun();
-
-                // Apply Wallkick 
-                // use wallhit.normal you twat !
-//                Vector3 oppositeWallDirection = (rightImpact) ? transform.TransformDirection(Vector3.left) : transform.TransformDirection(Vector3.right);
-//                oppositeWallDirection.Normalize();                                          // TODO sometimes direction is incorrect
-//                runningToJumpingImpulse.x = (crossProduct.x/2+oppositeWallDirection.x/2)*wallkickForceFactor*speed;  // TODO check its norm looks like we wallkick using absurd ammount of force
-//                runningToJumpingImpulse.z = (crossProduct.z/2+oppositeWallDirection.z/2)*wallkickForceFactor*speed;
-
-                debugRay = new Ray (transform.position, wallHit.normal);
-
-                moveDir.x += wallHit.normal.x * 100f;
-                moveDir.z += wallHit.normal.z * 100f;
-                moveDir.y += wallkickHeight;                                    // Set wallkick jump's height
             }
         }
         else
