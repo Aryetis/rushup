@@ -351,12 +351,33 @@ Debug.DrawRay(debugRay.origin, debugRay.direction*10);
             // Reset mouseLook internals quaternion has we indirectly messed our own but not its
             mouseLook.Init(transform, camera.transform);
 
-            // Affect Translation
-            moveDir = runningToJumpingImpulse;
-            moveDir.y = wallkickHeight;
+                // Affect Translation
+                runningToJumpingImpulse = Vector3.zero;
+//            moveDir = runningToJumpingImpulse;
+//            moveDir.y = wallkickHeizht;
+                moveDir = transform.forward * 100f;
+                controller.Move(Vector3.zero);
 
             // Decrease isWallkicking timer
             isWallkicking -= Time.deltaTime;
+
+Debug.Log("transform.forward : " + transform.forward);
+
+
+
+            if(isWallkicking <= 0)
+            {
+
+                runningToJumpingImpulse = Vector3.zero;
+//                Debug.Log("hello");
+                    previousAirControlDir = transform.forward * 100f;
+Debug.Log("transform.forward : " + transform.forward);
+Debug.Log("-------------------------------------------------");
+//                moveDir = runningToJumpingImpulse;
+//                moveDir.y = wallkickHeight; 
+//                runningToJumpingImpulse = Vector3.zero;
+                return;
+            }
 
             // DO NOT proceed to continue normal behavior as wallckick state is not user inputs based
             return;
