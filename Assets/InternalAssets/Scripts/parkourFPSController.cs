@@ -53,6 +53,7 @@ Ray debugRay;
     [SerializeField] private float maxNominalSpeed = 50f;                          // Player's max speed without any killSpeedBonus
     private Camera camera = null;                                                   // Player's Camera
     private CharacterController controller;                                         // Player's controller
+    private CapsuleCollider collider;
     private float inputHorizontal;                                                  // [-1;1] horizontal input for strafes (smoothed)
     private float inputVertical;                                                    // [-1;1] horizontal input for running/reversing (smoothed)
     private float prevInputHorizontal;                                              // Previous frame's inputHorizontal
@@ -65,9 +66,12 @@ Ray debugRay;
     private Vector3 moveDir=Vector3.zero;                                           // Current frame player's movement vector
     private Vector3 prevMoveDir=Vector3.zero;                                       // Previous frame player's movement
     private bool prevGroundedState;                                                 // Previous frame's grounded
-    private bool grounded;                                                          // Not using controller.isGrounded value because result is based on the PREVIOUS MOVE state
-                                                                                    // Resulting in unreliable state when running up on slanted floors
-                                                                                    // ( https://forum.unity.com/threads/charactercontroller-isgrounded-returning-unreliable-state.494786/ ) 
+    private bool grounded;      // Not using controller.isGrounded value because result is based on the PREVIOUS MOVE state
+                                // Resulting in unreliable state when running up on slanted floors
+                                // ( https://forum.unity.com/threads/charactercontroller-isgrounded-returning-unreliable-state.494786/ ) 
+    private bool hitByBullet = false;
+    private Vector3 collisionDirection;
+    private float bulletHitMomentum = 0f;
 
     [Space(10)]
     [Header("Running State Variables")]
@@ -118,7 +122,12 @@ Ray debugRay;
 
     [Space(10)]
     [Header("Sliding State Variables")]
-    [SerializeField] private float slidingMinSpeed = 10f;                           // TODO
+    [SerializeField] private float slidingMinSpeed = 10f;   // TODO
+    [SerializeField] private float crouchingHeight = 0.3f;
+    [SerializeField] private float slidingDecelerationFactor = 0.5f;                // will decelerate at "runningDecelerationFactor" the speed it accelerates
+
+    private float originalHeight;
+
 
     [Space(10)]
     [Header("Attacking State Variables")]
@@ -129,18 +138,17 @@ Ray debugRay;
     [Header("Mouse Properties")]
     [SerializeField] public MouseLook mouseLook = null;                             // Standard Asset script taking care of moving the camera according to mouse inputs
                                                                                     // public because UI must unlock cursor to allow player to click on buttons
-
-
-
-
-	// Use this for initialization
-	void Start ()
+    // Use this for initialization
+    void Start ()
     {
         camera = Camera.main;
         controller = GetComponent<CharacterController>();
         controller.detectCollisions = true;
         mouseLook.Init(transform , camera.transform);
 
+        collider = GetComponent<CapsuleCollider>();
+
+        originalHeight = controller.height;
         // Teleport Player to the ground to be sure of its playerState at startup
         RaycastHit hit;
         if(Physics.Raycast(transform.position, Vector3.down, out hit, 1000))
@@ -154,15 +162,12 @@ Ray debugRay;
         }
 	}
 
-    void OnCollisionEnter(Collision col)
-    {
-        Debug.Log("collision detected");   
-    }
+
 	
 	// Update is called once per frame
 	void Update ()
-    {
-Debug.DrawRay(debugRay.origin, debugRay.direction*10);
+  {
+        Debug.DrawRay(debugRay.origin, debugRay.direction*10);
         /*** CAPTURING INPUTS MOVED INSIDE FixedUpdate() ***/
 
         /*** UPDATING speed (for UI and various update[State]() ***/
@@ -219,6 +224,11 @@ Debug.DrawRay(debugRay.origin, debugRay.direction*10);
             { break; }
         }
 
+        /*** Manage hit by bullet ***/
+        if(hitByBullet) {
+            updateBulletHit();
+        }
+       
         /*** APPLYING moveDir FORCE ***/
         controller.Move(moveDir * Time.deltaTime);
 
@@ -243,9 +253,41 @@ Debug.DrawRay(debugRay.origin, debugRay.direction*10);
         inputVertical = CrossPlatformInputManager.GetAxis("Vertical");
         inputJump = CrossPlatformInputManager.GetButtonDown("Jump"); // Only capture Down Event for jump to avoid situation like : 
                                                                      // Player running right next to a wall, hit jump => wallrun and immediately after that wallkick
-    }
-        
+        inputSlide = CrossPlatformInputManager.GetButton("Slide");
 
+    }
+
+    void OnCollisionEnter(Collision col)
+    {
+        if(col.gameObject.tag == "Projectile")
+        {
+            collisionDirection = col.impulse * -1;
+            collisionDirection.Normalize();
+            collisionDirection.y = 0;
+
+            Debug.LogWarning(collisionDirection);
+
+            hitByBullet = true;
+            bulletHitMomentum = 0f;
+
+            Destroy(col.gameObject);
+        }
+        
+    }
+
+    void updateBulletHit()
+    {
+        if (bulletHitMomentum < 1.0)
+        {
+            moveDir += collisionDirection;
+            bulletHitMomentum += Time.deltaTime;
+        } else
+        {
+            hitByBullet = false;
+        }
+            
+       
+    }
 
     void updateRunning()
     {
@@ -319,6 +361,18 @@ Debug.DrawRay(debugRay.origin, debugRay.direction*10);
                 moveDir.y = jumpStrength + jumpStrength*(speed/maxNominalSpeed)*(jumpHeightSpeedFactor-1); 
                 // "standard jump height" + "speed dependent height jump" * (jumpHeightSpeedFactor-1)
             }
+
+            // Slide request
+            if(inputSlide && !inputJump)
+            {
+                playerState = PlayerState.sliding;
+                controller.height = crouchingHeight;
+                controller.center = new Vector3(controller.center.x,
+                    controller.center.y * crouchingHeight / originalHeight,
+                    controller.center.z);
+
+                collider.height = crouchingHeight;
+            }
         }
         else // Player is running from an edge => change state to "jumping" and override current update()'s cycle result
         {
@@ -329,8 +383,6 @@ Debug.DrawRay(debugRay.origin, debugRay.direction*10);
         // Applying gravity
         moveDir.y -= gravity * Time.deltaTime;
     }
-
-
 
     void updateJumping()
     {
@@ -625,6 +677,49 @@ Debug.DrawRay(debugRay.origin, debugRay.direction*10);
 
     void updateSliding()
     {
+        RaycastHit hit;
+        bool canStand = !Physics.Raycast(controller.transform.position, Vector3.up, out hit, originalHeight + controller.skinWidth + slopeClimbingPermissionStep);
+
+        if(canStand)
+        {
+            if(!inputSlide)
+            {
+                playerState = PlayerState.running;
+                controller.height = originalHeight;
+                controller.center = new Vector3(controller.center.x,
+                    controller.center.y * originalHeight / crouchingHeight,
+                    controller.center.z);
+
+                collider.height = originalHeight;
+
+                camera.transform.localPosition = new Vector3(camera.transform.localPosition.x,
+                       camera.transform.localPosition.y * originalHeight / crouchingHeight,
+                       camera.transform.localPosition.z);
+            } else
+            {
+                moveDir = Vector3.forward;
+                runningMomentum -= slidingDecelerationFactor * Time.deltaTime;
+                if (runningMomentum < 0)
+                {
+                    runningMomentum = 0;
+                }
+
+                Vector3 foo = moveDir * ((maxNominalSpeed - runningMinSpeed) * (runningMomentum / runningRampUpTime)); // Calculate current inputs impact on moveDir
+                moveDir = foo * (1 - runningInertiaFactor) + prevMoveDir * runningInertiaFactor; // mix current inputs vector and previous one according to runningInertiaFactor
+            }
+        } else
+        {
+            moveDir = Vector3.forward;
+            runningMomentum -= slidingDecelerationFactor * Time.deltaTime;
+            if (runningMomentum < 0)
+            {
+                runningMomentum = 0;
+            }
+
+            Vector3 foo = moveDir * (runningMinSpeed + ((maxNominalSpeed - runningMinSpeed) * (runningMomentum / runningRampUpTime))); // Calculate current inputs impact on moveDir
+            moveDir = foo * (1 - runningInertiaFactor) + prevMoveDir * runningInertiaFactor; // mix current inputs vector and previous one according to runningInertiaFactor
+        }
+    
         // Update Camera look and freedom according to playerState
         updateCamera();
 
@@ -662,6 +757,14 @@ Debug.DrawRay(debugRay.origin, debugRay.direction*10);
     {
         switch(playerState)
         {
+
+            case PlayerState.sliding:
+                camera.transform.localPosition = new Vector3(camera.transform.localPosition.x, 
+                    camera.transform.localPosition.y * crouchingHeight / originalHeight, 
+                    camera.transform.localPosition.z);
+
+                break;
+
             default:
             {   // Allow rotation on every axis by default
                 mouseLook.LookRotation (transform, camera.transform);
@@ -678,9 +781,7 @@ Debug.DrawRay(debugRay.origin, debugRay.direction*10);
             controller.velocity.z * controller.velocity.z);
     }
 
-
-
-    public static string getPlayerState()
+     public static string getPlayerState()
     {
         return playerState.ToString();
     }
