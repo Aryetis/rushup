@@ -85,7 +85,6 @@ Ray debugRay;
     private Vector3 runningToJumpingImpulse = Vector3.zero;                         // moveDir vector at the moment of the jump, used to kickstart the direction of the jump
     private Vector3 previousAirControlDir;                                          // direction of the airborne player at the previous frame
     private float cooldownLock;                                                     // player just wallkicked => forbid him to wallrun till ejectTime > 0
-    private float isWallKicking;
 
     [Space(10)]
     [Header("Wallrun State Variables")]
@@ -98,6 +97,7 @@ Ray debugRay;
     [SerializeField] private float wallrunEnterAngle = 45f;                         // if the player jump on the wall with an angle less than wallrunEnterAngle, he will wallrun it
     [SerializeField] private float wallrunExitAngle = 45f;                          // if the player jump on the wall with an angle less than wallrunEnterAngle, he will wallrun it
     [SerializeField] private float wallrunExitAnimationTime = 0.5f;                 // Time during wich the camera will slerp to the wallkick destination, PLAYERS INPUTS WON'T MATTER during the animation
+    private float speedAtWallkick;
     private Quaternion wallKickRotation;                                            // Describe the camera rotation/angle desired at the end of the wallkick animation
     private float isWallkicking;                                                    // Since how long the player has been wallkicking ?
     private RaycastHit wallHit;                                                     // Target the wall the player is/can currently wallruning on
@@ -351,33 +351,18 @@ Debug.DrawRay(debugRay.origin, debugRay.direction*10);
             // Reset mouseLook internals quaternion has we indirectly messed our own but not its
             mouseLook.Init(transform, camera.transform);
 
-                // Affect Translation
-                runningToJumpingImpulse = Vector3.zero;
-//            moveDir = runningToJumpingImpulse;
-//            moveDir.y = wallkickHeizht;
-                moveDir = transform.forward * 100f;
-                controller.Move(Vector3.zero);
+            // Affect Translation
+            moveDir.x = transform.forward.x * speedAtWallkick;
+            moveDir.z = transform.forward.z * speedAtWallkick;
+            if (isWallkicking == wallrunExitAnimationTime) // first frame of kickglitch => give the player some boost on the Y
+                moveDir.y += wallkickHeight; //TODO : playtest with LD if they want the boost to be speed dependant
 
             // Decrease isWallkicking timer
             isWallkicking -= Time.deltaTime;
 
-Debug.Log("transform.forward : " + transform.forward);
-
-
-
-            if(isWallkicking <= 0)
-            {
-
-                runningToJumpingImpulse = Vector3.zero;
-//                Debug.Log("hello");
-                    previousAirControlDir = transform.forward * 100f;
-Debug.Log("transform.forward : " + transform.forward);
-Debug.Log("-------------------------------------------------");
-//                moveDir = runningToJumpingImpulse;
-//                moveDir.y = wallkickHeight; 
-//                runningToJumpingImpulse = Vector3.zero;
-                return;
-            }
+            // Set basic vector for airControlDir for when the wallkick animation will be over (at every frame of the wallkick even tho it will be used only at the end, because why waste time on an if) 
+            // this way the player's direction will be the same at the end of the wallkick->start of the fall/jumping state
+            previousAirControlDir = transform.forward * speedAtWallkick; 
 
             // DO NOT proceed to continue normal behavior as wallckick state is not user inputs based
             return;
@@ -546,12 +531,11 @@ Debug.Log("-------------------------------------------------");
                 moveDir = Vector3.zero;                                         // and moveDir too because it's affected by previous runningToJumpingImpulse
                 float wallrunExitAngleAdapated = (leftImpact) ? wallrunExitAngle : -1 *wallrunExitAngle;             // Get direction angle from wall 
                 Quaternion originalRotation = transform.rotation;                                                    // store current rotation
-                wallKickRotation = Quaternion.AngleAxis(wallrunExitAngleAdapated, Vector3.up) * transform.rotation ; // compute wallkick quaternion rotation and store it
-                transform.rotation = wallKickRotation ;                                                              // apply it
-                runningToJumpingImpulse = transform.forward * (speed/wallrunMaxSpeed) * speed;                       // compute the wallkick vector
-                runningToJumpingImpulse.y = wallkickHeight;                                                          // ....
-                transform.rotation = originalRotation;                                                               // restore player's original quaternion rotation as we want a smooth rotation
-                                                                                                                     // will be done during updateJumping()
+                wallKickRotation = Quaternion.AngleAxis(wallrunExitAngleAdapated, Vector3.up) * transform.rotation ; // compute wallkick quaternion rotation and store it 
+                                                                                                                     // for smooth camera slerp during updateJump()
+
+                // Keep track of player's wallrunning speed and transfer it to wallkick's speed 
+                speedAtWallkick = speed;
 
                 // Set up the wallkick animation timer for updateJumping()
                 isWallkicking = wallrunExitAnimationTime;
