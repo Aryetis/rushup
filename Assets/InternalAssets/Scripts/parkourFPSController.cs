@@ -72,6 +72,8 @@ Ray debugRay;
     private bool hitByBullet = false;
     private Vector3 collisionDirection;
     private float bulletHitMomentum = 0f;
+    private Vector3 spawnTransformPosition;
+    private Transform spawnCameraTransform;
 
     [Space(10)]
     [Header("Running State Variables")]
@@ -165,6 +167,8 @@ Ray debugRay;
         {
             Debug.LogError("Please put the Player prefab above a floor/closer to it");
         }
+        spawnTransformPosition = transform.position;
+        spawnCameraTransform = camera.transform;
 	}
 
 
@@ -264,7 +268,7 @@ Ray debugRay;
 
     void OnCollisionEnter(Collision col)
     {
-        if(col.gameObject.tag == "Projectile")
+        if(col.gameObject.CompareTag("Projectile"))
         {
             collisionDirection = col.impulse * -1;
             collisionDirection.Normalize();
@@ -277,7 +281,38 @@ Ray debugRay;
 
             Destroy(col.gameObject);
         }
-        
+    }
+
+    void OnTriggerEnter(Collider col)
+    {
+        if (col.CompareTag("DeathZone"))
+        {   // "kill" the player and respawn him to the last validated checkpoint
+                // TODO
+            // reset all variables
+            moveDir = Vector3.zero;
+            prevMoveDir = Vector3.zero; 
+            previousAirControlDir = Vector3.zero;
+            prevInputHorizontal = 0;
+            prevInputVertical = 0;
+            previousWallWallran = null;
+            prevGroundedState = true;
+
+            // teleport player
+            GameObject restartCheckpoint = CheckpointBehavior.getRestartCheckpoint();
+            if(restartCheckpoint == null)
+            {   // if no checkpoint has been reached => respawn player to his start location
+                Debug.Log("spawnTransformPosition : "+spawnTransformPosition);
+                transform.position = spawnTransformPosition;
+                mouseLook.Init(transform, spawnCameraTransform);
+            }
+            else
+            {   // else respawn him to his last validated checkpoint
+                // TODO modify checkpoints and its prefab so every checkpoint.forward vector point toward the correct direction
+                transform.position = restartCheckpoint.transform.position;
+                mouseLook.Init(transform, restartCheckpoint.transform);
+            }
+
+        }
     }
 
     void updateBulletHit()
@@ -286,12 +321,11 @@ Ray debugRay;
         {
             moveDir += collisionDirection;
             bulletHitMomentum += Time.deltaTime;
-        } else
+        }
+        else
         {
             hitByBullet = false;
         }
-            
-       
     }
 
     void updateRunning()
