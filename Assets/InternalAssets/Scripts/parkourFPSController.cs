@@ -561,7 +561,7 @@ Ray debugRay;
         {
             // update wallHit, check that we're still riding the wall
             wallHit = checkAccessibleWall();
-            if (!leftImpact || !rightImpact) // Reached end of the wall
+            if (wallHit.collider == null) // Reached end of the wall 
             {
                 stopWallRun();
                 return;
@@ -654,7 +654,7 @@ Ray debugRay;
         if(!grounded && canWallClimb)
         {
             wallHit = checkAccessibleWall();
-            if (forwardImpact || inputVertical <= 0 )//|| speedY <= 0) 
+            if (wallHit.collider==null || inputVertical <= 0 )//|| speedY <= 0) 
             { // player reached the top of the wall OR let go of "forward" key OR does not have a positive speedY anymore => goes to jumping state()
                 stopWallClimb();
                 return;
