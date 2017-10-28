@@ -64,7 +64,7 @@ public class CheckpointBehavior : MonoBehaviour
 
     void OnTriggerEnter(Collider col)
     {
-        if(col.gameObject.CompareTag("Player"))
+        if(col.gameObject.CompareTag("Player") && active)
         {
             triggered = true;
         }
