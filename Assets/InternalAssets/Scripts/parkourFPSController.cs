@@ -46,23 +46,18 @@ public class parkourFPSController : MonoBehaviour
 {
     Ray debugRay;
     /* Player's state variable*/
-    private enum PlayerState { running, jumping, wallrunning, wallclimbing, sliding, edging, pushing, attacking, ejecting };
-    // Describing current state of the player : edging <=> grabed the edge of a cliff; pushing <=> pushing up from edging state; etc
-    private bool canWallRun = false;
-    // Describe if player is in a state that allows for him to start wallrunning (can't wallrun during a slide, duh)
-    private bool canWallClimb = false;
-    // Describe if player is in a state that allows for him to start wallclimbing
-    private bool canAttack = false;
-    // Describe if player is in a state that allows for him to start attacking
-    private bool canSlide = false;
-    // Describe if player is in a state that allows for him to start sliding
+    private enum PlayerState {running, jumping, wallrunning, wallclimbing, sliding, edging, pushing, attacking, ejecting}; // Describing current state of the player : edging <=> grabed the edge of a cliff; pushing <=> pushing up from edging state; etc . jumping can be used pretty much as the default state
+    private bool canWallRun = false;                                                // Describe if player is in a state that allows for him to start wallrunning (can't wallrun during a slide, duh)
+    private bool canWallClimb = false;                                              // Describe if player is in a state that allows for him to start wallclimbing 
+    private bool canAttack = false;                                                 // Describe if player is in a state that allows for him to start attacking
+    private bool canSlide = false;                                                  // Describe if player is in a state that allows for him to start sliding
 
     [Header("Global Variables")]
     [SerializeField]
     private float gravity = 20f;                                   // Gravity applied to the vector on the Y axis
     [SerializeField] private float jumpStrength = 20f;                              // Impulse given at the start of a jump
     [SerializeField] private float slopeClimbingPermissionStep = 0.25f;             // Height shift allowed on Y axis between two frames to considere if the player is grounded or not 
-    [SerializeField] private float maxNominalSpeed = 50f;                          // Player's max speed without any killSpeedBonus
+    [SerializeField] private float maxNominalSpeed = 50f;                           // Player's max speed without any killSpeedBonus
     private Camera camera = null;                                                   // Player's Camera
     private CharacterController controller;                                         // Player's controller
     private CapsuleCollider collider;
@@ -104,7 +99,8 @@ public class parkourFPSController : MonoBehaviour
     private float airControlFactor = 2.0f;                         // Determine how much the inputs performed by the player while airborne impact his direction
     private Vector3 runningToJumpingImpulse = Vector3.zero;                         // moveDir vector at the moment of the jump, used to kickstart the direction of the jump
     private Vector3 previousAirControlDir;                                          // direction of the airborne player at the previous frame
-    private float cooldownLock;                                                     // player just wallkicked => forbid him to wallrun till ejectTime > 0
+    private float wallrunCooldownLock;                                              // player just wallkicked => forbid him to wallrun till ejectTime > 0
+    private float wallclimbCooldownLock;
 
     [Space(10)]
     [Header("Wallrun State Variables")]
@@ -112,37 +108,33 @@ public class parkourFPSController : MonoBehaviour
     float wallrunMaxSpeed = 50f;                                   // Max Speed during wallrun (speed will increase over time)
     [SerializeField] private float wallrunningGravityFactor = 2f;                   // The bigger => the less gravity will impact player during wallrun
     [Range(0.0f, 0.1f)] [SerializeField] private float wallrunningDecelerationFactor = 0.025f;         // Player's momentum will decrease by deltaTime*wallrunningDecelerationFactor at each frame
-    [SerializeField] private float wallrunCoolDown = 0.25f;                         // Prevent player from hitting too much wallrun in a row
+    [SerializeField] private float wallrunCoolDown = 0.25f;                         // In seconds, Prevent player from hitting too much wallrun in a row
     [SerializeField] private float wallRunMinSpeed = 20f;                           // If player goes under wallRunMinSpeed he will fall from the wall 
     [SerializeField] private float wallkickHeight = 20f;                            // A wallkick (jump when wallruning) gives the player a boost on the Y axis of wallkickHeight 
     [SerializeField] private float wallrunEnterAngle = 45f;                         // if the player jump on the wall with an angle less than wallrunEnterAngle, he will wallrun it
     [SerializeField] private float wallrunExitAngle = 45f;                          // if the player jump on the wall with an angle less than wallrunEnterAngle, he will wallrun it
     [SerializeField] private float wallrunExitAnimationTime = 0.5f;                 // Time during wich the camera will slerp to the wallkick destination, PLAYERS INPUTS WON'T MATTER during the animation
-    private float speedAtWallkick;
-    private Quaternion wallKickRotation;
-    // Describe the camera rotation/angle desired at the end of the wallkick animation
-    private float isWallkicking;
-    // Since how long the player has been wallkicking ?
-    private RaycastHit wallHit;
-    // Target the wall the player is/can currently wallruning on
-    private float wallRunTime = 0.0f;
-    // How long player has been wallrunning
-    private GameObject previousWallWallran = null;
-    // keep in memory the last wall that has been wallran to prevent player from wallrunning on it two times in a row
+    private float speedAtWallkick;                                                  // Player's wallrun speed at the moment he triggered the wallkick animation, used to determine wallkick speed
+    private Quaternion wallKickRotation;                                            // Describe the camera rotation/angle desired at the end of the wallkick animation
+    private float isWallkicking;                                                    // Since how long the player has been wallkicking ?
+    private RaycastHit wallHit;                                                     // Target the wall the player is/can currently wallruning on
+    private float wallRunTime = 0.0f;                                               // How long player has been wallrunning
+    private GameObject previousWallWallran = null;                                  // keep in memory the last wall that has been wallran to prevent player from wallrunning on it two times in a row
+    bool rightImpact;                                                               // Can player wallrun on the right ?
+    bool leftImpact;                                                                // Can player wallrun on the left ?
 
     [Space(10)]
     [Header("Wallclimb State Variables")]
-    [SerializeField]
-    private float snapCameraSpeed = 3f;                            // The smallest the faster the camera will snap on its wallrun position
-    [SerializeField] private float wallclimbImpulse = 50f;                          // TODO
-    [SerializeField] private float initialVerticalImpulse = 10f;
-    [ReadOnly] public string wallClimbAngle = "(90-wallrunEnterAngle)*2";           // Just indicating to LDs that wallClimbAngle is basically whatever angle is remaining 
-
+    [SerializeField] private float wallclimbExitAngle = 30f;                        // Y axis Angle the player will exit the wallclimb if he decides to jump 
+    [SerializeField] private float wallclimbExitImpulse = 30f;                      // Impulse / "jump's height" given to the player when he decide to wallclimbkick
+    [SerializeField] private float wallclimbEnterImpulse = 50f;                     // Impulse given to the player to give him initial momentum to climb the wall
+    [SerializeField] private float wallclimbDecelerationFactor = 2f;                // How fast does the player loose his mmomentum / How high he can climb
+    [SerializeField] private float wallclimbCoolDown = 0.25f;                       // In seconds, Prevent player from wallclimbing too much in a row
+    [ReadOnly] public string _wallClimbAngle_ = "(90-wallrunEnterAngle)*2";         // Just indicating to LDs that wallClimbAngle is basically whatever angle is remaining 
     private float wallclimbingTime = 0f;                                            // How long the player has been wallclimbing
+    private GameObject previousWallWallclimbed;                                     // Keep track of the last climbed wall (=> to avoid wallclimbing twice on the same wall)
+    bool forwardImpact;                                                             // Can player wallclimb ?
 
-    private float ongoingSnapCameraTime = 0f;
-    bool rightImpact;
-    bool leftImpact;
 
     [Space(10)]
     [Header("Sliding State Variables")]
@@ -150,9 +142,7 @@ public class parkourFPSController : MonoBehaviour
     private float slidingMinSpeed = 10f;   // TODO
 
     [SerializeField] private float crouchingHeight = 0.3f;
-    [SerializeField] private float slidingDecelerationFactor = 0.5f;
-    // will decelerate at "runningDecelerationFactor" the speed it accelerates
-
+    [SerializeField] private float slidingDecelerationFactor = 0.5f;                // will decelerate at "runningDecelerationFactor" the speed it accelerates
     private float originalHeight;
 
 
@@ -177,8 +167,7 @@ public class parkourFPSController : MonoBehaviour
         camera = Camera.main;
         controller = GetComponent<CharacterController>();
         controller.detectCollisions = true;
-        mouseLook.Init(transform, camera.transform);
-
+        mouseLook.Init(transform , camera.transform);
         collider = GetComponent<CapsuleCollider>();
 
         originalHeight = controller.height;
@@ -376,10 +365,11 @@ public class parkourFPSController : MonoBehaviour
         // Update Camera look and freedom according to playerState
         updateCamera();
 
-        // Reset previousWallWallran value 
+        // Reset previousWallWallran & previousWallWallclimbed value 
         previousWallWallran = null;
-
-        if (grounded)
+        previousWallWallclimbed = null;
+         
+        if(grounded)
         {
             // Make sure that our state is set (in case of falling of a clif => no jump but still been airborne for a while)
             playerState = PlayerState.running;
@@ -508,30 +498,37 @@ public class parkourFPSController : MonoBehaviour
             updateCamera();
         }
 
-        // Update cooldownLock
-        if (cooldownLock > 0)
+        // Update wallrunCooldownLock
+        if (wallrunCooldownLock > 0)
         {
-            cooldownLock -= Time.deltaTime;
+            wallrunCooldownLock -= Time.deltaTime;
             return;
         }
 
         // Do a wall run check and change state if successful.
-        wallHit = checkAccessibleWallrun();
-        if (wallHit.collider != null && cooldownLock <= 0 && wallHit.collider.gameObject != previousWallWallran)
+        wallHit = checkAccessibleWall();
+        if (wallHit.collider != null && (leftImpact||rightImpact)  && wallrunCooldownLock <=0 && wallHit.collider.gameObject != previousWallWallran)
         {
             playerState = PlayerState.wallrunning;
             previousWallWallran = wallHit.collider.gameObject;
             return;
         }
 
+        // Update cooldownLock
+        if (wallclimbCooldownLock > 0)
+        {
+            wallclimbCooldownLock -= Time.deltaTime;
+            return;
+        }
+
         // Do a wall climb check and I need to clean up these hits.
-        //        RaycastHit wallClimbHit = DoWallClimbCheck(new Ray(transform.position, 
-        //            transform.TransformDirection(Vector3.forward).normalized * 0.1f));
-        //        if (wallClimbHit.collider != null)
-        //        {
-        //            playerState = PlayerState.wallclimbing;
-        //            return;
-        //        }
+        wallHit = checkAccessibleWall();
+        if (wallHit.collider != null && forwardImpact  && wallclimbCooldownLock <=0 && wallHit.collider.gameObject != previousWallWallclimbed)
+        {
+            playerState = PlayerState.wallclimbing;
+            previousWallWallclimbed = wallHit.collider.gameObject;
+            return;
+        }
 
         // Set moveDir as impulse given on ground (will be countered as time goes by, by the airControlDir vector)
         moveDir.x = runningToJumpingImpulse.x;
@@ -576,7 +573,7 @@ public class parkourFPSController : MonoBehaviour
 
 
 
-    RaycastHit checkAccessibleWallrun()
+    RaycastHit checkAccessibleWall()
     {
         // WARNING AT THE MOMENT SOME WALLRUN MIGHT SEEM TO BUG BECAUSE
         // even if this check returns something correct, when the player will start running he will not have enough speed along the wall's axis to be under the wallrunMinSpeed
@@ -584,12 +581,15 @@ public class parkourFPSController : MonoBehaviour
 
         Ray rayRight = new Ray(transform.position, transform.TransformDirection(Vector3.right));
         Ray rayLeft = new Ray(transform.position, transform.TransformDirection(Vector3.left));
+        Ray rayForward = new Ray(transform.position, transform.TransformDirection(Vector3.forward));
 
         RaycastHit wallImpactRight;
         RaycastHit wallImpactLeft;
+        RaycastHit wallImpactForward;
 
-        rightImpact = Physics.Raycast(rayRight.origin, rayRight.direction, out wallImpactRight, controller.radius + 1f);
-        leftImpact = Physics.Raycast(rayLeft.origin, rayLeft.direction, out wallImpactLeft, controller.radius + 1f);
+        rightImpact = Physics.Raycast(rayRight.origin, rayRight.direction, out wallImpactRight, controller.radius+1f);
+        leftImpact = Physics.Raycast(rayLeft.origin, rayLeft.direction, out wallImpactLeft, controller.radius+1f);
+        forwardImpact = Physics.Raycast(rayForward.origin, rayForward.direction, out wallImpactForward, controller.radius+1f);
 
         float rightAngle = Vector3.Angle(transform.TransformDirection(Vector3.forward), wallImpactRight.normal); // Angle(Forward, innerNormal) => if (Angle == 90) <=> Player looking along the wall) 
         float leftAngle = Vector3.Angle(transform.TransformDirection(Vector3.forward), wallImpactLeft.normal);
@@ -603,8 +603,16 @@ public class parkourFPSController : MonoBehaviour
             wallImpactLeft.normal *= -1; // for crossProduct
             return wallImpactLeft;
         }
+        else if (forwardImpact) // don't even need to check angles, as we already checked the two other use cases
+        {
+            return wallImpactForward;
+        }
         else
         {
+            // Make sure we're reseting those
+            rightImpact = false;
+            leftImpact = false;
+            forwardImpact = false;
             // Just return something empty, because nothing is good for a wall run
             return new RaycastHit();
         }
@@ -619,9 +627,9 @@ public class parkourFPSController : MonoBehaviour
         if (!controller.isGrounded && canWallRun)
         {
             // update wallHit, check that we're still riding the wall
-            wallHit = checkAccessibleWallrun();
-            if (wallHit.collider == null)
-            { // Reached end of the wall
+            wallHit = checkAccessibleWall();
+            if (wallHit.collider == null) // Reached end of the wall
+            {
                 stopWallRun();
                 return;
             }
@@ -694,7 +702,7 @@ public class parkourFPSController : MonoBehaviour
         mouseLook.Init(transform, camera.transform);
 
         // Reset important wallkick specific variables
-        cooldownLock = wallrunCoolDown;
+        wallrunCooldownLock = wallrunCoolDown;
         wallRunTime = 0.0f;
 
         // Change playerState
@@ -704,60 +712,73 @@ public class parkourFPSController : MonoBehaviour
 
     void updateWallclimbing()
     {
-        //        Debug.Log("updateWallclimbing()");
-        //        // Update Camera look and freedom according to playerState
-        //        updateCamera();
-        //
-        //        bool moving = (inputHorizontal!=0 || inputVertical!=0) ? true : false;
-        //        if (!moving)
-        //        {
-        //            wallclimbingTime = 0.0f;
-        //            if (playerState == PlayerState.wallclimbing)
-        //                canWallClimb = false;
-        //            playerState = PlayerState.jumping;
-        //            return;
-        //        }
-        //
-        //        Ray forwardRay = new Ray(transform.position, transform.TransformDirection(Vector3.forward).normalized);
-        //        forwardRay.direction *= 0.1f;
-        //
-        //        RaycastHit hit = DoWallClimbCheck(forwardRay);
-        //        if (canWallClimb && hit.collider != null && 
-        //            wallclimbingTime < 0.5f && Vector3.Angle(forwardRay.direction, hit.normal) > 165)
-        //        {
-        //
-        //            wallclimbingTime += Time.deltaTime;
-        //
-        //            // Look up. Disabled for now.
-        ////            Quaternion lookDirection = Quaternion.LookRotation(hit.normal * -1);
-        ////            camera.transform.rotation = Quaternion.Slerp(transform.rotation, lookDirection, 3.5f * Time.deltaTime);
-        //            camera.transform.Rotate(-85f * (wallclimbingTime / 0.5f), 0f, 0f); //            ^ Magic number for tweaking look time
-        //
-        //            // Move up.
-        //            moveDir += transform.TransformDirection(Vector3.up);
-        //            moveDir.Normalize();
-        //            moveDir *= runningMinSpeed;
-        //
-        //            playerState = PlayerState.wallclimbing;
-        //        }
-        //        else 
-        //        {
-        //            if (playerState == PlayerState.wallclimbing)
-        //                canWallClimb = false;
-        //            wallclimbingTime = 0f;
-        //            playerState = PlayerState.jumping;
-        //        }
+        Debug.Log("updateWallclimbing()");
+//        // Update Camera look and freedom according to playerState
+//        updateCamera();
+//
+//        bool moving = (inputHorizontal!=0 || inputVertical!=0) ? true : false;
+//        if (!moving)
+//        {
+//            wallclimbingTime = 0.0f;
+//            if (playerState == PlayerState.wallclimbing)
+//                canWallClimb = false;
+//            playerState = PlayerState.jumping;
+//            return;
+//        }
+//
+//        Ray forwardRay = new Ray(transform.position, transform.TransformDirection(Vector3.forward).normalized);
+//        forwardRay.direction *= 0.1f;
+//
+//        RaycastHit hit = DoWallClimbCheck(forwardRay);
+//        if (canWallClimb && hit.collider != null && 
+//            wallclimbingTime < 0.5f && Vector3.Angle(forwardRay.direction, hit.normal) > 165)
+//        {
+//
+//            wallclimbingTime += Time.deltaTime;
+//
+//            // Look up. Disabled for now.
+////            Quaternion lookDirection = Quaternion.LookRotation(hit.normal * -1);
+////            camera.transform.rotation = Quaternion.Slerp(transform.rotation, lookDirection, 3.5f * Time.deltaTime);
+//            camera.transform.Rotate(-85f * (wallclimbingTime / 0.5f), 0f, 0f); //            ^ Magic number for tweaking look time
+//
+//            // Move up.
+//            moveDir += transform.TransformDirection(Vector3.up);
+//            moveDir.Normalize();
+//            moveDir *= runningMinSpeed;
+//
+//            playerState = PlayerState.wallclimbing;
+//        }
+//        else 
+//        {
+//            if (playerState == PlayerState.wallclimbing)
+//                canWallClimb = false;
+//            wallclimbingTime = 0f;
+//            playerState = PlayerState.jumping;
+//        }
     }
 
-    RaycastHit DoWallClimbCheck(Ray forwardRay)
-    {
-        RaycastHit hit;
 
-        Physics.Raycast(forwardRay.origin, forwardRay.direction, out hit, 1f);
+        void stopWallClimb()
+        {
+            // Reset mouseLook internals quaternion has we indirectly messed our own but not its
+            mouseLook.Init(transform, camera.transform);
 
-        return hit;
+            // Reset important wallkick specific variables
+            wallclimbCooldownLock = wallclimbCoolDown;
+            wallclimbingTime = 0.0f;
 
-    }
+            // Change playerState
+            playerState = PlayerState.jumping;
+        }
+
+//    RaycastHit DoWallClimbCheck(Ray forwardRay)
+//    {
+//        RaycastHit hit;
+//
+//        Physics.Raycast(forwardRay.origin, forwardRay.direction, out hit, 1f);
+//
+//        return hit;
+//    }
 
 
     void updateSliding()
