@@ -1,6 +1,10 @@
 ﻿using System.Collections;
-using UnityStandardAssets.Characters.FirstPerson; // only for MouseLook
-using UnityStandardAssets.CrossPlatformInput;     // TODO : check if controls are working on Android ... it shoulds otherwise there's close to no point using CrossPlatformInput
+using UnityStandardAssets.Characters.FirstPerson;
+
+// only for MouseLook
+using UnityStandardAssets.CrossPlatformInput;
+
+// TODO : check if controls are working on Android ... it shoulds otherwise there's close to no point using CrossPlatformInput
 using UnityEngine;
 using UnityEditor;
 
@@ -21,14 +25,14 @@ public class ReadOnlyAttribute : PropertyAttribute
 public class ReadOnlyDrawer : PropertyDrawer
 {
     public override float GetPropertyHeight(SerializedProperty property,
-        GUIContent label)
+                                            GUIContent label)
     {
         return EditorGUI.GetPropertyHeight(property, label, true);
     }
 
     public override void OnGUI(Rect position,
-        SerializedProperty property,
-        GUIContent label)
+                               SerializedProperty property,
+                               GUIContent label)
     {
         GUI.enabled = false;
         EditorGUI.PropertyField(position, property, label, true);
@@ -140,8 +144,12 @@ public class parkourFPSController : MonoBehaviour
     [Space(10)]
     [Header("Attacking State Variables")]
     [SerializeField]
-    private float attackingImpulse = 50f;                          // TODO
-    [SerializeField] private float killSpeedBonus = 5f;                             // TODO Speed boost given immediately for each ennemy killed
+    private float attackingImpulse = 50f;
+    // TODO
+    [SerializeField] private float killSpeedBonus = 5f;
+    // TODO Speed boost given immediately for each ennemy killed
+    [SerializeField] private float hoomingRange = 20f;
+    private bool isAttacking;
 
     [Space(10)]
     [Header("Mouse Properties")]
