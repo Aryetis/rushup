@@ -17,6 +17,7 @@ public class CheckpointBehavior : MonoBehaviour
     [SerializeField] private bool firstCheckpoint = false;                  // Is this the first checkpoint the player has to reach ?
     [SerializeField] private Material activeCheckpointMaterial = null;      // Material used when the checkpoint is the one the player has to reach
     [SerializeField] private Material inactiveCheckpointMaterial = null;    // Material used when the checkpoint is not the next one the player has to reach/has been reached
+    private static GameObject restartCheckpoint = null;                      // Checkpoint to respawn on if player dies
     private bool active;                                                    // describe current checkpoint state, true if the player has to reach it
     private bool finalCheckpoint;                                           // true if there is no nextCheckpoint linked in the editor
     private bool triggered;                                                 // triggered if a player collide with its trigger
@@ -34,8 +35,10 @@ public class CheckpointBehavior : MonoBehaviour
 
         active = firstCheckpoint;
 
-        if(!active)
-            renderer.material = inactiveCheckpointMaterial;
+        restartCheckpoint = null;
+
+        if(firstCheckpoint)
+            renderer.material = activeCheckpointMaterial;
 
         if(nextCheckpoint == null)
             finalCheckpoint = true;
@@ -53,6 +56,9 @@ public class CheckpointBehavior : MonoBehaviour
             // deactivate this one => change renderer material or stuff
             renderer.material = inactiveCheckpointMaterial;
             active = false;
+
+            // Set this checkpoint as the new respawn point
+            restartCheckpoint = this.gameObject;
 
             // active next checkpoint
             if(!finalCheckpoint)
@@ -79,5 +85,10 @@ public class CheckpointBehavior : MonoBehaviour
     public static List<float> getCheckpointTimeTable()
     {
         return checkpointTimeTable;
+    }
+
+    public static GameObject getRestartCheckpoint()
+    {
+        return restartCheckpoint;
     }
 }
