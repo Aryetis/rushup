@@ -44,7 +44,7 @@ public class UIBehavior : MonoBehaviour
     {
         Debug.Log("game over");
         // freeze/slowDown the game
-        GameObject.Find("ScriptHolder").GetComponent<TimeManager>().timeScale = 0.01f; // can't set timescale to 0 ... because Unity
+        Time.timeScale = 0.01f; // can't set timescale to 0 ... because Unity
 
         // claim back the cursor
         parkourFPSController pkScript = GameObject.Find("FPSController").GetComponent<parkourFPSController>();
