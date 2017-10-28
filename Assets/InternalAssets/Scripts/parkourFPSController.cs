@@ -95,10 +95,11 @@ Ray debugRay;
     [SerializeField] private float wallrunCoolDown = 0.25f;                         // Prevent player from hitting too much wallrun in a row
     [SerializeField] private float wallRunMinSpeed = 20f;                           // If player goes under wallRunMinSpeed he will fall from the wall 
     [SerializeField] private float wallkickHeight = 20f;                            // A wallkick (jump when wallruning) gives the player a boost on the Y axis of wallkickHeight 
-    [SerializeField] private float wallkickForce = 200f;                            // The ammount of force (combined with player's speed) used to eject player from the wall when he is wallkicking
     [SerializeField] private float wallrunEnterAngle = 45f;                         // if the player jump on the wall with an angle less than wallrunEnterAngle, he will wallrun it
     [SerializeField] private float wallrunExitAngle = 45f;                          // if the player jump on the wall with an angle less than wallrunEnterAngle, he will wallrun it
     [SerializeField] private float wallrunExitAnimationTime = 0.5f;                 // Time during wich the camera will slerp to the wallkick destination, PLAYERS INPUTS WON'T MATTER during the animation
+    private Quaternion wallKickRotation;                                            // Describe the camera rotation/angle desired at the end of the wallkick animation
+    private float isWallkicking;                                                    // Since how long the player has been wallkicking ?
     private RaycastHit wallHit;                                                     // Target the wall the player is/can currently wallruning on
     private float wallRunTime = 0.0f;                                               // How long player has been wallrunning
     private GameObject previousWallWallran = null;                                  // keep in memory the last wall that has been wallran to prevent player from wallrunning on it two times in a row
@@ -333,9 +334,6 @@ Debug.DrawRay(debugRay.origin, debugRay.direction*10);
 
     void updateJumping()
     {
-        // Update Camera look and freedom according to playerState
-        updateCamera();
-        
         // Check if we're hitting the floor
         if(grounded) 
         {
@@ -345,11 +343,34 @@ Debug.DrawRay(debugRay.origin, debugRay.direction*10);
             return;
         }
 
+        if(isWallkicking > 0) // Check if player is wallkicking / Iterage over animation and ignore inputs
+        {
+            // Turn Camera 
+            transform.rotation = Quaternion.Slerp(transform.rotation, wallKickRotation, 3.5f * Time.deltaTime);
 
-        // Update ejectTime
+            // Reset mouseLook internals quaternion has we indirectly messed our own but not its
+            mouseLook.Init(transform, camera.transform);
+
+            // Affect Translation
+            moveDir = runningToJumpingImpulse;
+            moveDir.y = wallkickHeight;
+
+            // Decrease isWallkicking timer
+            isWallkicking -= Time.deltaTime;
+
+            // DO NOT proceed to continue normal behavior as wallckick state is not user inputs based
+            return;
+        }
+        else // Update Camera look and freedom according to playerState
+        {
+            updateCamera();
+        }
+
+        // Update cooldownLock
         if (cooldownLock > 0)
         {
             cooldownLock -= Time.deltaTime;
+            return;
         }
 
         // Do a wall run check and change state if successful.
@@ -499,14 +520,20 @@ Debug.DrawRay(debugRay.origin, debugRay.direction*10);
 
             if (inputJump == true) // player requested a wallkick
             {
-                // Apply wallkick //TODO : smooth the exit out by adding a flag ? problem can't use mouse input during slerp animation => must be short
-                float wallrunExitAngleAdapated = (leftImpact) ? wallrunExitAngle : -1 *wallrunExitAngle; 
-                transform.rotation = Quaternion.AngleAxis(wallrunExitAngleAdapated, Vector3.up) * transform.rotation ;
-                runningToJumpingImpulse = transform.forward * (speed/wallrunMaxSpeed) * wallkickForce;
-                runningToJumpingImpulse.y = wallkickHeight;
+                // Apply wallkick 
+                runningToJumpingImpulse = Vector3.zero;                         // reset runningToJumpingImpulse in case player has been chaining the wallkicks
+                moveDir = Vector3.zero;                                         // and moveDir too because it's affected by previous runningToJumpingImpulse
+                float wallrunExitAngleAdapated = (leftImpact) ? wallrunExitAngle : -1 *wallrunExitAngle;             // Get direction angle from wall 
+                Quaternion originalRotation = transform.rotation;                                                    // store current rotation
+                wallKickRotation = Quaternion.AngleAxis(wallrunExitAngleAdapated, Vector3.up) * transform.rotation ; // compute wallkick quaternion rotation and store it
+                transform.rotation = wallKickRotation ;                                                              // apply it
+                runningToJumpingImpulse = transform.forward * (speed/wallrunMaxSpeed) * speed;                       // compute the wallkick vector
+                runningToJumpingImpulse.y = wallkickHeight;                                                          // ....
+                transform.rotation = originalRotation;                                                               // restore player's original quaternion rotation as we want a smooth rotation
+                                                                                                                     // will be done during updateJumping()
 
                 // Set up the wallkick animation timer for updateJumping()
-                isWallKicking = wallrunExitAnimationTime;
+                isWallkicking = wallrunExitAnimationTime;
 
                 stopWallRun();
             }
@@ -524,8 +551,11 @@ Debug.DrawRay(debugRay.origin, debugRay.direction*10);
         // Reset mouseLook internals quaternion has we indirectly messed our own but not its
         mouseLook.Init(transform, camera.transform);
 
+        // Reset important wallkick specific variables
         cooldownLock = wallrunCoolDown;
         wallRunTime = 0.0f;
+
+        // Change playerState
         playerState = PlayerState.jumping;
     }
 
