@@ -95,7 +95,7 @@ Ray debugRay;
     [Header("Wallrun State Variables")]
     [SerializeField] float wallrunMaxSpeed = 50f;                                   // Max Speed during wallrun (speed will increase over time)
     [SerializeField] private float wallrunningGravityFactor = 2f;                   // The bigger => the less gravity will impact player during wallrun
-    [Range(0.0f, 0.1f)] [SerializeField] private float wallrunningDecelerationFactor = 0.025f;         // Player's momentum will decrease by deltaTime*wallrunningDecelerationFactor at each frame
+    [Range(0.0f, 0.1f)] [SerializeField] private float wallrunningDecelerationFactor = 0.025f; // Player's momentum will decrease by deltaTime*wallrunningDecelerationFactor at each frame
     [SerializeField] private float wallrunCoolDown = 0.25f;                         // In seconds, Prevent player from hitting too much wallrun in a row
     [SerializeField] private float wallRunMinSpeed = 20f;                           // If player goes under wallRunMinSpeed he will fall from the wall 
     [SerializeField] private float wallkickHeight = 20f;                            // A wallkick (jump when wallruning) gives the player a boost on the Y axis of wallkickHeight 
@@ -114,14 +114,17 @@ Ray debugRay;
     [Space(10)]
     [Header("Wallclimb State Variables")]
     [SerializeField] private float wallclimbExitAngle = 30f;                        // Y axis Angle the player will exit the wallclimb if he decides to jump 
+    [SerializeField] private float wallclimbingGravityFactor = 0.5f;                // The bigger => the less gravity will impact player during wallrun
     [SerializeField] private float wallclimbExitImpulse = 30f;                      // Impulse / "jump's height" given to the player when he decide to wallclimbkick
+    [Range(0.0f, 0.5f)] [SerializeField] private float wallclimbDecelerationFactor = 0.25f; // Not really impacting the player's speed or height during wallclimb BUT will impact how much momentum he kept from this wallclimb
+                                                                                            // the bigger => the more momentum/speed lost from the wallclimb for incomingn running phase or such
     [SerializeField] private float wallclimbEnterImpulse = 50f;                     // Impulse given to the player to give him initial momentum to climb the wall
-    [SerializeField] private float wallclimbDecelerationFactor = 2f;                // How fast does the player loose his mmomentum / How high he can climb
     [SerializeField] private float wallclimbCoolDown = 0.25f;                       // In seconds, Prevent player from wallclimbing too much in a row
     [ReadOnly] public string _wallClimbAngle_ = "(90-wallrunEnterAngle)*2";         // Just indicating to LDs that wallClimbAngle is basically whatever angle is remaining 
     private float wallclimbingTime = 0f;                                            // How long the player has been wallclimbing
     private GameObject previousWallWallclimbed;                                     // Keep track of the last climbed wall (=> to avoid wallclimbing twice on the same wall)
     bool forwardImpact;                                                             // Can player wallclimb ?
+    float speedY;                                                                   // Vertical speed
 
 
     [Space(10)]
@@ -307,6 +310,7 @@ Ray debugRay;
 
             // Turn on possible moves flags
             canWallRun = true;
+            canWallClimb = true;
 
             // get direction Vector3 from input
             moveDir = new Vector3(inputHorizontal, 0f, inputVertical);
@@ -553,14 +557,19 @@ Ray debugRay;
     {
         // Camera locked during wallrun => no updateCamera()
 
-        if (!controller.isGrounded && canWallRun)
+        if (!grounded && canWallRun)
         {
             // update wallHit, check that we're still riding the wall
             wallHit = checkAccessibleWall();
-            if (wallHit.collider == null) // Reached end of the wall
+            if (!leftImpact || !rightImpact) // Reached end of the wall
             {
                 stopWallRun();
                 return;
+            }
+
+            if (speed < wallRunMinSpeed || inputVertical <= 0)
+            {
+                stopWallRun(); // user decided to stop wallrunning or ran out of speed => don't allow him to wallrun again
             }
 
             // Make sure we set the state to wallrunning
@@ -591,11 +600,6 @@ Ray debugRay;
 
             // update wallRunTime
             wallRunTime += Time.deltaTime;
-
-            if (speed < wallRunMinSpeed || inputVertical <= 0)
-            {
-                stopWallRun(); // user decided to stop wallrunning or ran out of speed => don't allow him to wallrun again
-            }
 
             if (inputJump == true) // player requested a wallkick
             {
@@ -640,7 +644,38 @@ Ray debugRay;
 
     void updateWallclimbing()
     {
+        Debug.Log("-----------------------------------------");
+        Debug.Log("canWallClimb : " + canWallClimb);
+        Debug.Log("grounded :" + grounded);
         Debug.Log("updateWallclimbing()");
+
+        // Camera locked during wallrun => no updateCamera()
+
+        if(!grounded && canWallClimb)
+        {
+            wallHit = checkAccessibleWall();
+            if (forwardImpact || inputVertical <= 0 )//|| speedY <= 0) 
+            { // player reached the top of the wall OR let go of "forward" key OR does not have a positive speedY anymore => goes to jumping state()
+                stopWallClimb();
+                return;
+            }
+
+            // Decrement momentum 
+            runningMomentum -= wallclimbDecelerationFactor*Time.deltaTime;
+            if (runningMomentum < 0)
+            {
+                runningMomentum = 0;
+            }
+
+            // Set moveDir
+            moveDir = prevMoveDir;
+            moveDir.y -= (gravity / wallclimbingGravityFactor) * Time.deltaTime;
+        }
+        else
+        {
+            stopWallClimb();
+        }
+
 //        // Update Camera look and freedom according to playerState
 //        updateCamera();
 //
@@ -813,6 +848,7 @@ Ray debugRay;
     {
         speed = (float) Mathf.Sqrt(controller.velocity.x * controller.velocity.x +
             controller.velocity.z * controller.velocity.z);
+        speedY = controller.velocity.y;
     }
 
      public static string getPlayerState()
