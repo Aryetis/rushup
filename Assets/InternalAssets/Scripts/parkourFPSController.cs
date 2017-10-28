@@ -739,9 +739,20 @@ public class parkourFPSController : MonoBehaviour
                 runningMomentum = 0;
             }
 
-            // Set moveDir
-            moveDir = prevMoveDir;
-            moveDir.y -= (gravity / wallclimbingGravityFactor) * Time.deltaTime;
+            // Update wallClimbTime
+            wallclimbingTime += Time.deltaTime;
+
+            // Look up. Disabled for now.
+            Quaternion lookDirection = Quaternion.LookRotation(wallHit.normal * -1);
+            camera.transform.rotation = Quaternion.Slerp(transform.rotation, lookDirection, 3.5f * Time.deltaTime);
+            camera.transform.Rotate(-85f * (wallclimbingTime / 0.5f), 0f, 0f); //            ^ Magic number for tweaking look time
+
+            // Move up.
+            moveDir += transform.TransformDirection(Vector3.up);
+            moveDir.Normalize();
+            moveDir *= runningMinSpeed;
+
+
         }
         else
         {
@@ -818,6 +829,10 @@ public class parkourFPSController : MonoBehaviour
 
     void updateSliding()
     {
+        // Prevent wallrun and wallclimb until the player is running again
+        canWallRun = false;
+        canWallClimb = false;
+
         RaycastHit hit;
         bool canStand = !Physics.Raycast(controller.transform.position, Vector3.up, out hit, originalHeight + controller.skinWidth + slopeClimbingPermissionStep);
 
