@@ -75,7 +75,7 @@ public class parkourFPSController : MonoBehaviour
     private bool grounded;      // Not using controller.isGrounded value because result is based on the PREVIOUS MOVE state
                                 // Resulting in unreliable state when running up on slanted floors
                                 // ( https://forum.unity.com/threads/charactercontroller-isgrounded-returning-unreliable-state.494786/ ) 
-
+    private GameObject groundFloor = null;                                          // Gameobject corresponding to what the player is walking on
     private bool hitByBullet = false;
     private Vector3 collisionDirection;
     private float bulletHitMomentum = 0f;
@@ -118,7 +118,7 @@ public class parkourFPSController : MonoBehaviour
     private float isWallkicking;                                                    // Since how long the player has been wallkicking ?
     private RaycastHit wallHit;                                                     // Target the wall the player is/can currently wallruning on
     private float wallRunTime = 0.0f;                                               // How long player has been wallrunning
-    private GameObject previousWallWalltricked = null;                                  // keep in memory the last wall that has been wallran to prevent player from wallrunning on it two times in a row
+    private GameObject previousWallWalltricked = null;                              // keep in memory the last wall that has been wallran to prevent player from wallrunning on it two times in a row
     bool rightImpact;                                                               // Can player wallrun on the right ?
     bool leftImpact;                                                                // Can player wallrun on the left ?
 
@@ -205,6 +205,8 @@ public class parkourFPSController : MonoBehaviour
         /*** UPDATING grounded STATE ***/
         RaycastHit hit;
         grounded = Physics.Raycast(controller.transform.position, Vector3.down, out hit, (controller.height / 2f) + controller.skinWidth + slopeClimbingPermissionStep);
+        if(grounded)
+            groundFloor = hit.collider.gameObject;
 
         if (inputAttacking && playerState != PlayerState.attacking)
         {
@@ -323,10 +325,7 @@ public class parkourFPSController : MonoBehaviour
             moveDir = Vector3.zero;
             prevMoveDir = Vector3.zero;
             previousAirControlDir = Vector3.zero;
-//            prevInputHorizontal = 0;
-//            prevInputVertical = 0;
-            previousWallWalltricked = null;
-//            prevGroundedState = true;
+//            previousWallWalltricked = null;
 
             // teleport player
             GameObject restartCheckpoint = CheckpointBehavior.getRestartCheckpoint();
@@ -373,7 +372,7 @@ public class parkourFPSController : MonoBehaviour
         updateCamera();
 
         // Reset previousWallWallran & previousWallWallclimbed value 
-        previousWallWalltricked = null;
+
          
         if(grounded)
         {
@@ -383,6 +382,12 @@ public class parkourFPSController : MonoBehaviour
             // Turn on possible moves flags
             canWallRun = true;
             canWallClimb = true;
+            // TODO DEBUG WTF FIND A WAY TO RESET not reset previouswallrunzgererezgef zgrf
+            if (groundFloor != previousWallWalltricked)
+                previousWallWalltricked = null;
+
+
+
 
             // get direction Vector3 from input
             moveDir = new Vector3(inputHorizontal, 0f, inputVertical);
@@ -516,7 +521,7 @@ public class parkourFPSController : MonoBehaviour
 
         // Do a wall run check and change state if successful.
         wallHit = checkAccessibleWall();
-        if (wallHit.collider != null && (leftImpact||rightImpact)  && wallrunCooldownLock <=0 && wallHit.collider.gameObject != previousWallWalltricked)
+        if (wallHit.collider != null && (leftImpact||rightImpact)  && wallrunCooldownLock <= 0 && wallHit.collider.gameObject != previousWallWalltricked)
         {
             playerState = PlayerState.wallrunning;
             previousWallWalltricked = wallHit.collider.gameObject;
@@ -526,29 +531,19 @@ public class parkourFPSController : MonoBehaviour
         // Do a wall climb check and I need to clean up these hits.
         RaycastHit hit  = DoWallClimbCheck(new Ray(transform.position, 
             transform.TransformDirection(Vector3.forward).normalized * 0.1f));
-        if (hit.collider != null && hit.collider.gameObject != previousWallWalltricked)
+        if (hit.collider != null && wallclimbCooldownLock <= 0 && hit.collider.gameObject != previousWallWalltricked)
         {
+//            Debug.Log(" engage wallclimbing !");
+//            Debug.Log ("hit.collider.gameObject.gameObject.name : " + hit.collider.gameObject.gameObject.name); 
+//            Debug.Log("previousWallWalltricked : "+previousWallWalltricked);
 
 
-
-
-
-
-
-
-            Debug.Log(" engage wallclimbing !");
             playerState = PlayerState.wallclimbing;
+            previousWallWalltricked = hit.collider.gameObject;
+
+//            Debug.Log ("hit.collider.gameObject.gameObject.name : " + hit.collider.gameObject.gameObject.name); 
+//            Debug.Log("previousWallWalltricked : "+previousWallWalltricked);
             return;
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -750,9 +745,6 @@ public class parkourFPSController : MonoBehaviour
         RaycastHit hit = DoWallClimbCheck(forwardRay);
         if (canWallClimb && hit.collider != null && Vector3.Angle(forwardRay.direction, hit.normal) > 165)
         {
-            // TODO put that in a stopWallClimbing()
-            previousWallWalltricked = hit.collider.gameObject;
-
             wallclimbingTime += Time.deltaTime;
 
             // Look up. Disabled for now.
@@ -769,10 +761,10 @@ public class parkourFPSController : MonoBehaviour
         }
         else
         {
-            Debug.Log("---------------------------------------------"); // TRIGGERED WAYY TOO MUCH
-            Debug.Log("canWallClimb : " + canWallClimb);
-            Debug.Log("hit.collider != null : " + hit.collider != null);
-            Debug.Log("Vector3.Angle(forwardRay.direction, hit.normal) > 165) : " + (Vector3.Angle(forwardRay.direction, hit.normal) > 165) );
+//            Debug.Log("---------------------------------------------"); // TRIGGERED WAYY TOO MUCH
+//            Debug.Log("canWallClimb : " + canWallClimb);
+//            Debug.Log("hit.collider != null : " + hit.collider != null);
+//            Debug.Log("Vector3.Angle(forwardRay.direction, hit.normal) > 165) : " + (Vector3.Angle(forwardRay.direction, hit.normal) > 165) );
             if (playerState == PlayerState.wallclimbing)
                 canWallClimb = false;
             wallclimbingTime = 0f;
