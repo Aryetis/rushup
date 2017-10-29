@@ -16,7 +16,7 @@ using UnityEditor;
 *  TODO : Beautify the whole inspector for this class using [CustomEditor(typeof(parkourFPSController))} and OnInspectorGUI()
  */
 public class ReadOnlyAttribute : PropertyAttribute
-{}
+{ }
 [CustomPropertyDrawer(typeof(ReadOnlyAttribute))]
 public class ReadOnlyDrawer : PropertyDrawer
 {
@@ -38,16 +38,17 @@ public class ReadOnlyDrawer : PropertyDrawer
 
 public class parkourFPSController : MonoBehaviour
 {
-Ray debugRay;
+    Ray debugRay;
     /* Player's state variable*/
-    private enum PlayerState {running, jumping, wallrunning, wallclimbing, sliding, edging, pushing, attacking, ejecting}; // Describing current state of the player : edging <=> grabed the edge of a cliff; pushing <=> pushing up from edging state; etc
+    private enum PlayerState { running, jumping, wallrunning, wallclimbing, sliding, edging, pushing, attacking, ejecting }; // Describing current state of the player : edging <=> grabed the edge of a cliff; pushing <=> pushing up from edging state; etc
     private bool canWallRun = false;                                                // Describe if player is in a state that allows for him to start wallrunning (can't wallrun during a slide, duh)
     private bool canWallClimb = false;                                              // Describe if player is in a state that allows for him to start wallclimbing 
     private bool canAttack = false;                                                 // Describe if player is in a state that allows for him to start attacking
     private bool canSlide = false;                                                  // Describe if player is in a state that allows for him to start sliding
 
     [Header("Global Variables")]
-    [SerializeField] private float gravity = 20f;                                   // Gravity applied to the vector on the Y axis
+    [SerializeField]
+    private float gravity = 20f;                                   // Gravity applied to the vector on the Y axis
     [SerializeField] private float jumpStrength = 20f;                              // Impulse given at the start of a jump
     [SerializeField] private float slopeClimbingPermissionStep = 0.25f;             // Height shift allowed on Y axis between two frames to considere if the player is grounded or not 
     [SerializeField] private float maxNominalSpeed = 50f;                          // Player's max speed without any killSpeedBonus
@@ -63,8 +64,8 @@ Ray debugRay;
     private bool inputAttacking;                                                    // TODO is attacking key pressed ?
     private static PlayerState playerState = PlayerState.running;                   // Describe current player state
     private static float speed;                                                     // Player speed along x and z axis => NOT taking into account Y axis (no falling speed displayed)
-    private Vector3 moveDir=Vector3.zero;                                           // Current frame player's movement vector
-    private Vector3 prevMoveDir=Vector3.zero;                                       // Previous frame player's movement
+    private Vector3 moveDir = Vector3.zero;                                           // Current frame player's movement vector
+    private Vector3 prevMoveDir = Vector3.zero;                                       // Previous frame player's movement
     private bool prevGroundedState;                                                 // Previous frame's grounded
     private bool grounded;      // Not using controller.isGrounded value because result is based on the PREVIOUS MOVE state
                                 // Resulting in unreliable state when running up on slanted floors
@@ -77,7 +78,8 @@ Ray debugRay;
 
     [Space(10)]
     [Header("Running State Variables")]
-    [SerializeField] private float runningMinSpeed = 10f;                           // Player will start running at this speed
+    [SerializeField]
+    private float runningMinSpeed = 10f;                           // Player will start running at this speed
     [SerializeField] private float runningRampUpTime = 0.2f;                        // Time in seconds for player to reach maxNominalSpeed (in seconds)
     [Range(0.0f, 1.0f)] [SerializeField] private float runningInertiaFactor = 0.9f; // [0;1] the bigger the less current input will impact the outcome / the more slippery the player wil be
     [SerializeField] private float runningDecelerationFactor = 0.5f;                // will decelerate at "runningDecelerationFactor" the speed it accelerates
@@ -87,14 +89,16 @@ Ray debugRay;
 
     [Space(10)]
     [Header("Airborne State Variables")]
-    [SerializeField] private float airControlFactor = 2.0f;                         // Determine how much the inputs performed by the player while airborne impact his direction
+    [SerializeField]
+    private float airControlFactor = 2.0f;                         // Determine how much the inputs performed by the player while airborne impact his direction
     private Vector3 runningToJumpingImpulse = Vector3.zero;                         // moveDir vector at the moment of the jump, used to kickstart the direction of the jump
     private Vector3 previousAirControlDir;                                          // direction of the airborne player at the previous frame
     private float cooldownLock;                                                     // player just wallkicked => forbid him to wallrun till ejectTime > 0
 
     [Space(10)]
     [Header("Wallrun State Variables")]
-    [SerializeField] float wallrunMaxSpeed = 50f;                                   // Max Speed during wallrun (speed will increase over time)
+    [SerializeField]
+    float wallrunMaxSpeed = 50f;                                   // Max Speed during wallrun (speed will increase over time)
     [SerializeField] private float wallrunningGravityFactor = 2f;                   // The bigger => the less gravity will impact player during wallrun
     [Range(0.0f, 0.1f)] [SerializeField] private float wallrunningDecelerationFactor = 0.025f;         // Player's momentum will decrease by deltaTime*wallrunningDecelerationFactor at each frame
     [SerializeField] private float wallrunCoolDown = 0.25f;                         // Prevent player from hitting too much wallrun in a row
@@ -112,9 +116,10 @@ Ray debugRay;
 
     [Space(10)]
     [Header("Wallclimb State Variables")]
-    [SerializeField] private float snapCameraSpeed = 3f;                            // The smallest the faster the camera will snap on its wallrun position
+    [SerializeField]
+    private float snapCameraSpeed = 3f;                            // The smallest the faster the camera will snap on its wallrun position
     [SerializeField] private float wallclimbImpulse = 50f;                          // TODO
-    [SerializeField] private float initialVerticalImpulse = 10f;    
+    [SerializeField] private float initialVerticalImpulse = 10f;
     [ReadOnly] public string wallClimbAngle = "(90-wallrunEnterAngle)*2";           // Just indicating to LDs that wallClimbAngle is basically whatever angle is remaining 
 
     private float wallclimbingTime = 0f;                                            // How long the player has been wallclimbing
@@ -124,7 +129,8 @@ Ray debugRay;
 
     [Space(10)]
     [Header("Sliding State Variables")]
-    [SerializeField] private float slidingMinSpeed = 10f;   // TODO
+    [SerializeField]
+    private float slidingMinSpeed = 10f;   // TODO
     [SerializeField] private float crouchingHeight = 0.3f;
     [SerializeField] private float slidingDecelerationFactor = 0.5f;                // will decelerate at "runningDecelerationFactor" the speed it accelerates
 
@@ -133,27 +139,29 @@ Ray debugRay;
 
     [Space(10)]
     [Header("Attacking State Variables")]
-    [SerializeField] private float attackingImpulse = 50f;                          // TODO
+    [SerializeField]
+    private float attackingImpulse = 50f;                          // TODO
     [SerializeField] private float killSpeedBonus = 5f;                             // TODO Speed boost given immediately for each ennemy killed
 
     [Space(10)]
     [Header("Mouse Properties")]
-    [SerializeField] public MouseLook mouseLook = null;                             // Standard Asset script taking care of moving the camera according to mouse inputs
-                                                                                    // public because UI must unlock cursor to allow player to click on buttons
-    // Use this for initialization
-    void Start ()
+    [SerializeField]
+    public MouseLook mouseLook = null;                             // Standard Asset script taking care of moving the camera according to mouse inputs
+                                                                   // public because UI must unlock cursor to allow player to click on buttons
+                                                                   // Use this for initialization
+    void Start()
     {
         camera = Camera.main;
         controller = GetComponent<CharacterController>();
         controller.detectCollisions = true;
-        mouseLook.Init(transform , camera.transform);
+        mouseLook.Init(transform, camera.transform);
 
         collider = GetComponent<CapsuleCollider>();
 
         originalHeight = controller.height;
         // Teleport Player to the ground to be sure of its playerState at startup
         RaycastHit hit;
-        if(Physics.Raycast(transform.position, Vector3.down, out hit, 1000))
+        if (Physics.Raycast(transform.position, Vector3.down, out hit, 1000))
         {
             transform.position = new Vector3(hit.point.x, hit.point.y + controller.height, hit.point.z);
             grounded = true;
@@ -164,14 +172,14 @@ Ray debugRay;
         }
         spawnTransformPosition = transform.position;
         spawnCameraTransform = camera.transform;
-	}
+    }
 
 
-	
-	// Update is called once per frame
-	void Update ()
-  {
-        Debug.DrawRay(debugRay.origin, debugRay.direction*10);
+
+    // Update is called once per frame
+    void Update()
+    {
+        Debug.DrawRay(debugRay.origin, debugRay.direction * 10);
         /*** CAPTURING INPUTS MOVED INSIDE FixedUpdate() ***/
 
         /*** UPDATING speed (for UI and various update[State]() ***/
@@ -181,58 +189,59 @@ Ray debugRay;
         RaycastHit hit;
         grounded = Physics.Raycast(controller.transform.position, Vector3.down, out hit, (controller.height / 2f) + controller.skinWidth + slopeClimbingPermissionStep);
 
-        /*** CALCULATING FORCE FROM INPUTS & STATE***/ 
-        switch(playerState)
+        /*** CALCULATING FORCE FROM INPUTS & STATE***/
+        switch (playerState)
         {
             case PlayerState.running:
-            {
-                updateRunning();
-                break; 
-            }
+                {
+                    updateRunning();
+                    break;
+                }
             case PlayerState.jumping:
-            {
-                updateJumping();
-                break; 
-            }
+                {
+                    updateJumping();
+                    break;
+                }
             case PlayerState.wallrunning:
-            {
-                updateWallrunning();
-                break; 
-            }
+                {
+                    updateWallrunning();
+                    break;
+                }
             case PlayerState.wallclimbing:
-            {
-                updateWallclimbing();
-                break; 
-            }
+                {
+                    updateWallclimbing();
+                    break;
+                }
             case PlayerState.sliding:
-            {
-                updateSliding();
-                break; 
-            }
+                {
+                    updateSliding();
+                    break;
+                }
             case PlayerState.edging:
-            {
-                updateEdging();
-                break; 
-            }
+                {
+                    updateEdging();
+                    break;
+                }
             case PlayerState.pushing:
-            {
-                updatePushing();
-                break; 
-            }
+                {
+                    updatePushing();
+                    break;
+                }
             case PlayerState.attacking:
-            {
-                updateAttacking();
-                break; 
-            }
+                {
+                    updateAttacking();
+                    break;
+                }
             default:
-            { break; }
+                { break; }
         }
 
         /*** Manage hit by bullet ***/
-        if(hitByBullet) {
+        if (hitByBullet)
+        {
             updateBulletHit();
         }
-       
+
         /*** APPLYING moveDir FORCE ***/
         controller.Move(moveDir * Time.deltaTime);
 
@@ -244,16 +253,16 @@ Ray debugRay;
 
         /*** LOCK mouseLook TO PREVENT UNWANTED INPUTS ***/
         mouseLook.UpdateCursorLock();
-	}
+    }
 
 
 
     // FixedUpdate is called once per physic cycle
-    void FixedUpdate ()
-    { 
+    void FixedUpdate()
+    {
         /*** CAPTURING INPUTS ***/
         // Doing this inside FixedUpdate to make sure we didn't miss any inputs in case of lag
-        inputHorizontal = CrossPlatformInputManager.GetAxis("Horizontal"); 
+        inputHorizontal = CrossPlatformInputManager.GetAxis("Horizontal");
         inputVertical = CrossPlatformInputManager.GetAxis("Vertical");
         inputJump = CrossPlatformInputManager.GetButtonDown("Jump"); // Only capture Down Event for jump to avoid situation like : 
                                                                      // Player running right next to a wall, hit jump => wallrun and immediately after that wallkick
@@ -263,7 +272,7 @@ Ray debugRay;
 
     void OnCollisionEnter(Collision col)
     {
-        if(col.gameObject.CompareTag("Projectile"))
+        if (col.gameObject.CompareTag("Projectile"))
         {
             collisionDirection = col.impulse * -1;
             collisionDirection.Normalize();
@@ -282,10 +291,10 @@ Ray debugRay;
     {
         if (col.CompareTag("DeathZone"))
         {   // "kill" the player and respawn him to the last validated checkpoint
-                // TODO
+            // TODO
             // reset all variables
             moveDir = Vector3.zero;
-            prevMoveDir = Vector3.zero; 
+            prevMoveDir = Vector3.zero;
             previousAirControlDir = Vector3.zero;
             prevInputHorizontal = 0;
             prevInputVertical = 0;
@@ -294,9 +303,9 @@ Ray debugRay;
 
             // teleport player
             GameObject restartCheckpoint = CheckpointBehavior.getRestartCheckpoint();
-            if(restartCheckpoint == null)
+            if (restartCheckpoint == null)
             {   // if no checkpoint has been reached => respawn player to his start location
-                Debug.Log("spawnTransformPosition : "+spawnTransformPosition);
+                Debug.Log("spawnTransformPosition : " + spawnTransformPosition);
                 transform.position = spawnTransformPosition;
                 mouseLook.Init(transform, spawnCameraTransform);
             }
@@ -330,8 +339,8 @@ Ray debugRay;
 
         // Reset previousWallWallran value 
         previousWallWallran = null;
-         
-        if(grounded)
+
+        if (grounded)
         {
             // Make sure that our state is set (in case of falling of a clif => no jump but still been airborne for a while)
             playerState = PlayerState.running;
@@ -343,17 +352,17 @@ Ray debugRay;
             moveDir = new Vector3(inputHorizontal, 0f, inputVertical);
             moveDir = transform.TransformDirection(moveDir); // Align moveDir vector with localTransform/camera forward vector
             moveDir.Normalize();
-           
+
             // Correct moveDir according to the floor's slant
             RaycastHit hitInfoDown;
-            if(Physics.SphereCast(transform.position, controller.radius, Vector3.down, out hitInfoDown,
+            if (Physics.SphereCast(transform.position, controller.radius, Vector3.down, out hitInfoDown,
                controller.height / 2f, Physics.AllLayers, QueryTriggerInteraction.Ignore))
             {
                 moveDir = Vector3.ProjectOnPlane(moveDir, hitInfoDown.normal).normalized;
             }
 
             // Build up the "momementum" as long as player is pressing "moving forward/strafing"
-            bool moving = (inputHorizontal!=0 || inputVertical!=0) ? true : false;
+            bool moving = (inputHorizontal != 0 || inputVertical != 0) ? true : false;
             if (moving && runningMomentum <= runningRampUpTime)
             {
                 runningMomentum += Time.deltaTime; // build up "temporal" momentum 
@@ -364,13 +373,13 @@ Ray debugRay;
             }
             else // If Player is letting go of the "forward" key, reduce "momentum"
             {
-                runningMomentum -= runningDecelerationFactor*Time.deltaTime;
+                runningMomentum -= runningDecelerationFactor * Time.deltaTime;
                 if (runningMomentum < 0)
                 {
                     runningMomentum = 0;
                 }
             }
-                
+
             // Compute moveDir according to minSpeed, maxNominalSpeed, deltaTime, inertiaFactor, etc
             if (speed <= 0.5) // if player's speed is below minSpeed => kickstart player to runningMinSpeed
             {                 // no need to check if player is moving as in this case moveDir will already be at 0
@@ -383,21 +392,21 @@ Ray debugRay;
             }
             else // Player is moving beyond runningMinSpeed
             {
-                Vector3 foo = moveDir * (runningMinSpeed + ((maxNominalSpeed-runningMinSpeed) * (runningMomentum / runningRampUpTime))); // Calculate current inputs impact on moveDir
+                Vector3 foo = moveDir * (runningMinSpeed + ((maxNominalSpeed - runningMinSpeed) * (runningMomentum / runningRampUpTime))); // Calculate current inputs impact on moveDir
                 moveDir = foo * (1 - runningInertiaFactor) + prevMoveDir * runningInertiaFactor; // mix current inputs vector and previous one according to runningInertiaFactor
             }
 
             // Jump Requested 
-            if(inputJump)
-            {   
+            if (inputJump)
+            {
                 runningToJumpingImpulse = moveDir;
                 playerState = PlayerState.jumping;
-                moveDir.y = jumpStrength + jumpStrength*(speed/maxNominalSpeed)*(jumpHeightSpeedFactor-1); 
+                moveDir.y = jumpStrength + jumpStrength * (speed / maxNominalSpeed) * (jumpHeightSpeedFactor - 1);
                 // "standard jump height" + "speed dependent height jump" * (jumpHeightSpeedFactor-1)
             }
 
             // Slide request
-            if(inputSlide && !inputJump)
+            if (inputSlide && !inputJump)
             {
                 playerState = PlayerState.sliding;
                 controller.height = crouchingHeight;
@@ -421,7 +430,7 @@ Ray debugRay;
     void updateJumping()
     {
         // Check if we're hitting the floor
-        if(grounded) 
+        if (grounded)
         {
             playerState = PlayerState.running;
             // reset airBorne specific global values
@@ -429,7 +438,7 @@ Ray debugRay;
             return;
         }
 
-        if(isWallkicking > 0) // Check if player is wallkicking / Iterage over animation and ignore inputs
+        if (isWallkicking > 0) // Check if player is wallkicking / Iterage over animation and ignore inputs
         {
             // Turn Camera 
             transform.rotation = Quaternion.Slerp(transform.rotation, wallKickRotation, 3.5f * Time.deltaTime);
@@ -448,7 +457,7 @@ Ray debugRay;
 
             // Set basic vector for airControlDir for when the wallkick animation will be over (at every frame of the wallkick even tho it will be used only at the end, because why waste time on an if) 
             // this way the player's direction will be the same at the end of the wallkick->start of the fall/jumping state
-            previousAirControlDir = transform.forward * speedAtWallkick; 
+            previousAirControlDir = transform.forward * speedAtWallkick;
 
             // DO NOT proceed to continue normal behavior as wallckick state is not user inputs based
             return;
@@ -467,7 +476,7 @@ Ray debugRay;
 
         // Do a wall run check and change state if successful.
         wallHit = checkAccessibleWallrun();
-        if (wallHit.collider != null && cooldownLock <=0 && wallHit.collider.gameObject != previousWallWallran)
+        if (wallHit.collider != null && cooldownLock <= 0 && wallHit.collider.gameObject != previousWallWallran)
         {
             playerState = PlayerState.wallrunning;
             previousWallWallran = wallHit.collider.gameObject;
@@ -475,13 +484,13 @@ Ray debugRay;
         }
 
         // Do a wall climb check and I need to clean up these hits.
-//        RaycastHit wallClimbHit = DoWallClimbCheck(new Ray(transform.position, 
-//            transform.TransformDirection(Vector3.forward).normalized * 0.1f));
-//        if (wallClimbHit.collider != null)
-//        {
-//            playerState = PlayerState.wallclimbing;
-//            return;
-//        }
+        //        RaycastHit wallClimbHit = DoWallClimbCheck(new Ray(transform.position, 
+        //            transform.TransformDirection(Vector3.forward).normalized * 0.1f));
+        //        if (wallClimbHit.collider != null)
+        //        {
+        //            playerState = PlayerState.wallclimbing;
+        //            return;
+        //        }
 
         // Set moveDir as impulse given on ground (will be countered as time goes by, by the airControlDir vector)
         moveDir.x = runningToJumpingImpulse.x;
@@ -491,10 +500,10 @@ Ray debugRay;
         Vector3 airControlDir = new Vector3(inputHorizontal, 0f, inputVertical);
         airControlDir = transform.TransformDirection(airControlDir);
         airControlDir.Normalize();
-       
+
         // GLUT : hardcoding a airControlFactor to decide how much control the player has over his initial impulse, because lack of time to test (see github for previous attempt, it worked but was pretty unplayable)
-        airControlDir.x = previousAirControlDir.x + airControlDir.x*airControlFactor ;
-        airControlDir.z = previousAirControlDir.z + airControlDir.z*airControlFactor ;
+        airControlDir.x = previousAirControlDir.x + airControlDir.x * airControlFactor;
+        airControlDir.z = previousAirControlDir.z + airControlDir.z * airControlFactor;
 
         //Combine moveDir and airControlDir according to airInertiaFactor factor
         moveDir = moveDir + airControlDir;
@@ -538,17 +547,17 @@ Ray debugRay;
         RaycastHit wallImpactRight;
         RaycastHit wallImpactLeft;
 
-        rightImpact = Physics.Raycast(rayRight.origin, rayRight.direction, out wallImpactRight, controller.radius+1f);
-        leftImpact = Physics.Raycast(rayLeft.origin, rayLeft.direction, out wallImpactLeft, controller.radius+1f);
+        rightImpact = Physics.Raycast(rayRight.origin, rayRight.direction, out wallImpactRight, controller.radius + 1f);
+        leftImpact = Physics.Raycast(rayLeft.origin, rayLeft.direction, out wallImpactLeft, controller.radius + 1f);
 
         float rightAngle = Vector3.Angle(transform.TransformDirection(Vector3.forward), wallImpactRight.normal); // Angle(Forward, innerNormal) => if (Angle == 90) <=> Player looking along the wall) 
         float leftAngle = Vector3.Angle(transform.TransformDirection(Vector3.forward), wallImpactLeft.normal);
 
-        if (rightImpact && rightAngle > 90 && rightAngle < 90+wallrunEnterAngle)
+        if (rightImpact && rightAngle > 90 && rightAngle < 90 + wallrunEnterAngle)
         { // check if impact && correct side of the wall && angle not too stiff
             return wallImpactRight;
         }
-        else if (leftImpact && leftAngle > 90 && leftAngle < 90+wallrunEnterAngle)
+        else if (leftImpact && leftAngle > 90 && leftAngle < 90 + wallrunEnterAngle)
         {
             wallImpactLeft.normal *= -1; // for crossProduct
             return wallImpactLeft;
@@ -587,7 +596,7 @@ Ray debugRay;
             transform.rotation = Quaternion.Slerp(transform.rotation, lookDirection, 3.5f * Time.deltaTime);
 
             // Decrement momentum 
-            runningMomentum -= wallrunningDecelerationFactor*Time.deltaTime;
+            runningMomentum -= wallrunningDecelerationFactor * Time.deltaTime;
             if (runningMomentum < 0)
             {
                 runningMomentum = 0;
@@ -596,7 +605,7 @@ Ray debugRay;
             // Actualize moveDir
             moveDir = crossProduct;
             moveDir.Normalize();
-            moveDir *= wallRunMinSpeed + ( (wallrunMaxSpeed-wallRunMinSpeed) * (runningMomentum / runningRampUpTime));
+            moveDir *= wallRunMinSpeed + ((wallrunMaxSpeed - wallRunMinSpeed) * (runningMomentum / runningRampUpTime));
 
             // Set the vertical curve of the wallrun
             moveDir.y = prevMoveDir.y;
@@ -615,10 +624,10 @@ Ray debugRay;
                 // Apply wallkick 
                 runningToJumpingImpulse = Vector3.zero;                         // reset runningToJumpingImpulse in case player has been chaining the wallkicks
                 moveDir = Vector3.zero;                                         // and moveDir too because it's affected by previous runningToJumpingImpulse
-                float wallrunExitAngleAdapated = (leftImpact) ? wallrunExitAngle : -1 *wallrunExitAngle;             // Get direction angle from wall 
+                float wallrunExitAngleAdapated = (leftImpact) ? wallrunExitAngle : -1 * wallrunExitAngle;             // Get direction angle from wall 
                 Quaternion originalRotation = transform.rotation;                                                    // store current rotation
-                wallKickRotation = Quaternion.AngleAxis(wallrunExitAngleAdapated, Vector3.up) * transform.rotation ; // compute wallkick quaternion rotation and store it 
-                                                                                                                     // for smooth camera slerp during updateJump()
+                wallKickRotation = Quaternion.AngleAxis(wallrunExitAngleAdapated, Vector3.up) * transform.rotation; // compute wallkick quaternion rotation and store it 
+                                                                                                                    // for smooth camera slerp during updateJump()
 
                 // Keep track of player's wallrunning speed and transfer it to wallkick's speed 
                 speedAtWallkick = speed;
@@ -653,49 +662,49 @@ Ray debugRay;
 
     void updateWallclimbing()
     {
-//        Debug.Log("updateWallclimbing()");
-//        // Update Camera look and freedom according to playerState
-//        updateCamera();
-//
-//        bool moving = (inputHorizontal!=0 || inputVertical!=0) ? true : false;
-//        if (!moving)
-//        {
-//            wallclimbingTime = 0.0f;
-//            if (playerState == PlayerState.wallclimbing)
-//                canWallClimb = false;
-//            playerState = PlayerState.jumping;
-//            return;
-//        }
-//
-//        Ray forwardRay = new Ray(transform.position, transform.TransformDirection(Vector3.forward).normalized);
-//        forwardRay.direction *= 0.1f;
-//
-//        RaycastHit hit = DoWallClimbCheck(forwardRay);
-//        if (canWallClimb && hit.collider != null && 
-//            wallclimbingTime < 0.5f && Vector3.Angle(forwardRay.direction, hit.normal) > 165)
-//        {
-//
-//            wallclimbingTime += Time.deltaTime;
-//
-//            // Look up. Disabled for now.
-////            Quaternion lookDirection = Quaternion.LookRotation(hit.normal * -1);
-////            camera.transform.rotation = Quaternion.Slerp(transform.rotation, lookDirection, 3.5f * Time.deltaTime);
-//            camera.transform.Rotate(-85f * (wallclimbingTime / 0.5f), 0f, 0f); //            ^ Magic number for tweaking look time
-//
-//            // Move up.
-//            moveDir += transform.TransformDirection(Vector3.up);
-//            moveDir.Normalize();
-//            moveDir *= runningMinSpeed;
-//
-//            playerState = PlayerState.wallclimbing;
-//        }
-//        else 
-//        {
-//            if (playerState == PlayerState.wallclimbing)
-//                canWallClimb = false;
-//            wallclimbingTime = 0f;
-//            playerState = PlayerState.jumping;
-//        }
+        //        Debug.Log("updateWallclimbing()");
+        //        // Update Camera look and freedom according to playerState
+        //        updateCamera();
+        //
+        //        bool moving = (inputHorizontal!=0 || inputVertical!=0) ? true : false;
+        //        if (!moving)
+        //        {
+        //            wallclimbingTime = 0.0f;
+        //            if (playerState == PlayerState.wallclimbing)
+        //                canWallClimb = false;
+        //            playerState = PlayerState.jumping;
+        //            return;
+        //        }
+        //
+        //        Ray forwardRay = new Ray(transform.position, transform.TransformDirection(Vector3.forward).normalized);
+        //        forwardRay.direction *= 0.1f;
+        //
+        //        RaycastHit hit = DoWallClimbCheck(forwardRay);
+        //        if (canWallClimb && hit.collider != null && 
+        //            wallclimbingTime < 0.5f && Vector3.Angle(forwardRay.direction, hit.normal) > 165)
+        //        {
+        //
+        //            wallclimbingTime += Time.deltaTime;
+        //
+        //            // Look up. Disabled for now.
+        ////            Quaternion lookDirection = Quaternion.LookRotation(hit.normal * -1);
+        ////            camera.transform.rotation = Quaternion.Slerp(transform.rotation, lookDirection, 3.5f * Time.deltaTime);
+        //            camera.transform.Rotate(-85f * (wallclimbingTime / 0.5f), 0f, 0f); //            ^ Magic number for tweaking look time
+        //
+        //            // Move up.
+        //            moveDir += transform.TransformDirection(Vector3.up);
+        //            moveDir.Normalize();
+        //            moveDir *= runningMinSpeed;
+        //
+        //            playerState = PlayerState.wallclimbing;
+        //        }
+        //        else 
+        //        {
+        //            if (playerState == PlayerState.wallclimbing)
+        //                canWallClimb = false;
+        //            wallclimbingTime = 0f;
+        //            playerState = PlayerState.jumping;
+        //        }
     }
 
     RaycastHit DoWallClimbCheck(Ray forwardRay)
@@ -714,9 +723,9 @@ Ray debugRay;
         RaycastHit hit;
         bool canStand = !Physics.Raycast(controller.transform.position, Vector3.up, out hit, originalHeight + controller.skinWidth + slopeClimbingPermissionStep);
 
-        if(canStand)
+        if (canStand)
         {
-            if(!inputSlide)
+            if (!inputSlide)
             {
                 playerState = PlayerState.running;
                 controller.height = originalHeight;
@@ -729,7 +738,8 @@ Ray debugRay;
                 camera.transform.localPosition = new Vector3(camera.transform.localPosition.x,
                        camera.transform.localPosition.y * originalHeight / crouchingHeight,
                        camera.transform.localPosition.z);
-            } else
+            }
+            else
             {
                 moveDir = Vector3.forward;
                 runningMomentum -= slidingDecelerationFactor * Time.deltaTime;
@@ -741,7 +751,8 @@ Ray debugRay;
                 Vector3 foo = moveDir * ((maxNominalSpeed - runningMinSpeed) * (runningMomentum / runningRampUpTime)); // Calculate current inputs impact on moveDir
                 moveDir = foo * (1 - runningInertiaFactor) + prevMoveDir * runningInertiaFactor; // mix current inputs vector and previous one according to runningInertiaFactor
             }
-        } else
+        }
+        else
         {
             moveDir = Vector3.forward;
             runningMomentum -= slidingDecelerationFactor * Time.deltaTime;
@@ -753,7 +764,7 @@ Ray debugRay;
             Vector3 foo = moveDir * (runningMinSpeed + ((maxNominalSpeed - runningMinSpeed) * (runningMomentum / runningRampUpTime))); // Calculate current inputs impact on moveDir
             moveDir = foo * (1 - runningInertiaFactor) + prevMoveDir * runningInertiaFactor; // mix current inputs vector and previous one according to runningInertiaFactor
         }
-    
+
         // Update Camera look and freedom according to playerState
         updateCamera();
 
@@ -789,21 +800,21 @@ Ray debugRay;
 
     void updateCamera()
     {
-        switch(playerState)
+        switch (playerState)
         {
 
             case PlayerState.sliding:
-                camera.transform.localPosition = new Vector3(camera.transform.localPosition.x, 
-                    camera.transform.localPosition.y * crouchingHeight / originalHeight, 
+                camera.transform.localPosition = new Vector3(camera.transform.localPosition.x,
+                    camera.transform.localPosition.y * crouchingHeight / originalHeight,
                     camera.transform.localPosition.z);
 
                 break;
 
             default:
-            {   // Allow rotation on every axis by default
-                mouseLook.LookRotation (transform, camera.transform);
-                break;
-            }
+                {   // Allow rotation on every axis by default
+                    mouseLook.LookRotation(transform, camera.transform);
+                    break;
+                }
         }
     }
 
@@ -811,11 +822,11 @@ Ray debugRay;
 
     private void updateSpeed()
     {
-        speed = (float) Mathf.Sqrt(controller.velocity.x * controller.velocity.x +
+        speed = (float)Mathf.Sqrt(controller.velocity.x * controller.velocity.x +
             controller.velocity.z * controller.velocity.z);
     }
 
-     public static string getPlayerState()
+    public static string getPlayerState()
     {
         return playerState.ToString();
     }
