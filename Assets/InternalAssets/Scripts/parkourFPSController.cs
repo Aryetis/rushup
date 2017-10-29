@@ -44,11 +44,16 @@ public class parkourFPSController : MonoBehaviour
 {
     Ray debugRay;
     /* Player's state variable*/
-    private enum PlayerState { running, jumping, wallrunning, wallclimbing, sliding, edging, pushing, attacking, ejecting }; // Describing current state of the player : edging <=> grabed the edge of a cliff; pushing <=> pushing up from edging state; etc
-    private bool canWallRun = false;                                                // Describe if player is in a state that allows for him to start wallrunning (can't wallrun during a slide, duh)
-    private bool canWallClimb = false;                                              // Describe if player is in a state that allows for him to start wallclimbing 
-    private bool canAttack = false;                                                 // Describe if player is in a state that allows for him to start attacking
-    private bool canSlide = false;                                                  // Describe if player is in a state that allows for him to start sliding
+    private enum PlayerState { running, jumping, wallrunning, wallclimbing, sliding, edging, pushing, attacking, ejecting };
+    // Describing current state of the player : edging <=> grabed the edge of a cliff; pushing <=> pushing up from edging state; etc
+    private bool canWallRun = false;
+    // Describe if player is in a state that allows for him to start wallrunning (can't wallrun during a slide, duh)
+    private bool canWallClimb = false;
+    // Describe if player is in a state that allows for him to start wallclimbing
+    private bool canAttack = false;
+    // Describe if player is in a state that allows for him to start attacking
+    private bool canSlide = false;
+    // Describe if player is in a state that allows for him to start sliding
 
     [Header("Global Variables")]
     [SerializeField]
