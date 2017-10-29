@@ -134,7 +134,6 @@ public class parkourFPSController : MonoBehaviour
     private float speedAtWallturnjump;
     public string _wallClimbAngle_ = "(90-wallrunEnterAngle)*2";                    // Just indicating to LDs that wallClimbAngle is basically whatever angle is remaining 
     private float wallclimbingTime = 0f;                                            // How long the player has been wallclimbing
-    private bool forwardImpact;                                                     // Can player wallclimb ?
     private float speedY;                                                           // Vertical speed
     private float isWallTurnJumping;                                                // Since how long the player has been wallkicking ?
 
@@ -495,93 +494,6 @@ public class parkourFPSController : MonoBehaviour
             // DO NOT proceed to continue normal behavior as wallckick state is not user inputs based
             return;
         }
-        else if(isWallTurnJumping > 0)
-        {
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-            // Turn Camera 
-            transform.rotation = Quaternion.Slerp(transform.rotation, wallturnjumpRotation, 3.5f * Time.deltaTime);
-
-            // Reset mouseLook internals quaternion has we indirectly messed our own but not its
-            mouseLook.Init(transform, camera.transform);
-
-            // Affect Translation
-//            moveDir.x = transform.forward.x * speedAtWallturnjump;
-//            moveDir.z = transform.forward.z * speedAtWallturnjump;
-//            if (isWallkicking == wallturnjumpingExitAnimationTime) // first frame of kickglitch => give the player some boost on the Y
-//                moveDir.y += wallturnjumpExitImpulseHeight; //TODO : playtest with LD if they want the boost to be speed dependant
-
-            // Decrease isWallkicking timer
-//            isWallTurnJumping -= Time.deltaTime;
-
-            // Set basic vector for airControlDir for when the wallkick animation will be over (at every frame of the wallkick even tho it will be used only at the end, because why waste time on an if) 
-            // this way the player's direction will be the same at the end of the wallkick->start of the fall/jumping state
-//            previousAirControlDir = transform.forward * speedAtWallkick; 
-
-            // DO NOT proceed to continue normal behavior as wallckick state is not user inputs based
-            return;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        }
         else // Player is "just" jumping, give him freedom to move the camera
         {
             updateCamera();
@@ -603,19 +515,11 @@ public class parkourFPSController : MonoBehaviour
             return;
         }
 
-        // Update wallclimbCooldownLock
-        if (wallclimbCooldownLock > 0)
-        {
-            wallclimbCooldownLock -= Time.deltaTime;
-            return;
-        }
-
         // Do a wall climb check and I need to clean up these hits.
-        wallHit = checkAccessibleWall();
-        if (wallHit.collider != null && forwardImpact  && wallclimbCooldownLock <=0 && wallHit.collider.gameObject != previousWallWalltricked)
-        {
+        wallHit = DoWallClimbCheck(new Ray(transform.position, 
+            transform.TransformDirection(Vector3.forward).normalized * 0.1f));
+        if (wallHit.collider != null) {
             playerState = PlayerState.wallclimbing;
-            previousWallWalltricked = wallHit.collider.gameObject;
             return;
         }
 
@@ -670,15 +574,12 @@ public class parkourFPSController : MonoBehaviour
 
         Ray rayRight = new Ray(transform.position, transform.TransformDirection(Vector3.right));
         Ray rayLeft = new Ray(transform.position, transform.TransformDirection(Vector3.left));
-        Ray rayForward = new Ray(transform.position, transform.TransformDirection(Vector3.forward));
 
         RaycastHit wallImpactRight;
         RaycastHit wallImpactLeft;
-        RaycastHit wallImpactForward;
 
         rightImpact = Physics.Raycast(rayRight.origin, rayRight.direction, out wallImpactRight, controller.radius+1f);
         leftImpact = Physics.Raycast(rayLeft.origin, rayLeft.direction, out wallImpactLeft, controller.radius+1f);
-        forwardImpact = Physics.Raycast(rayForward.origin, rayForward.direction, out wallImpactForward, controller.radius+1f);
 
         float rightAngle = Vector3.Angle(transform.TransformDirection(Vector3.forward), wallImpactRight.normal); // Angle(Forward, innerNormal) => if (Angle == 90) <=> Player looking along the wall) 
         float leftAngle = Vector3.Angle(transform.TransformDirection(Vector3.forward), wallImpactLeft.normal);
@@ -692,16 +593,11 @@ public class parkourFPSController : MonoBehaviour
             wallImpactLeft.normal *= -1; // for crossProduct
             return wallImpactLeft;
         }
-        else if (forwardImpact) // don't even need to check angles, as we already checked the two other use cases
-        {
-            return wallImpactForward;
-        }
         else
         {
             // Make sure we're reseting those
             rightImpact = false;
             leftImpact = false;
-            forwardImpact = false;
             // Just return something empty, because nothing is good for a wall run
             return new RaycastHit();
         }
@@ -802,111 +698,56 @@ public class parkourFPSController : MonoBehaviour
 
     void updateWallclimbing()
     {
-        // Camera locked during wallrun => no updateCamera()
+    
+        if ( !(inputVertical>0) ) {
+            wallclimbingTime = 0.0f;
+            if (playerState == PlayerState.wallclimbing)
+                canWallClimb = false;
+            playerState = PlayerState.jumping;
+            return;
+        }
 
-        if(!grounded && canWallClimb)
-        {
-            wallHit = checkAccessibleWall();
-            if (wallHit.collider==null || inputVertical <= 0 || speedY <= 0) 
-            { // player reached the top of the wall OR let go of "forward" key OR does not have a positive speedY anymore => goes to jumping state()
-                stopWallClimb();
-                return;
-            }
+        Ray forwardRay = new Ray(transform.position, transform.TransformDirection(Vector3.forward).normalized);
+        forwardRay.direction *= 0.1f;
 
-            // Decrement momentum (even tho we're not using it, it makes sense to slow the player down for the next running phase)
-            runningMomentum -= wallclimbDecelerationFactor*Time.deltaTime;
-            if (runningMomentum < 0)
-            {
-                runningMomentum = 0;
-            }
+        RaycastHit hit = DoWallClimbCheck(forwardRay);
+        if (canWallClimb && hit.collider != null && 
+            wallclimbingTime < 0.5f && Vector3.Angle(forwardRay.direction, hit.normal) > 165){
 
-            // Update wallClimbTime
             wallclimbingTime += Time.deltaTime;
 
-            // Look up
-            Vector3 crossProduct = Vector3.Cross(transform.right, wallHit.normal);
-            Quaternion lookDirection = Quaternion.LookRotation(crossProduct);
-            transform.rotation = Quaternion.Slerp(transform.rotation, lookDirection, 10f*Time.deltaTime); // Jerky in editor but smooth in-game because reasons                                                                                                        
+            // Look up. Disabled for now.
+            Quaternion lookDirection = Quaternion.LookRotation(hit.normal * -1);
+            transform.rotation = Quaternion.Slerp(transform.rotation, lookDirection, 3.5f * Time.deltaTime);
+            //camera.transform.Rotate(-85f * (climbTime / 0.5f), 0f, 0f); //            ^ Magic number for tweaking look time
 
-            //  update wallclimbingTime
-            wallclimbingTime += Time.deltaTime;
-            
             // Move up.
-//            moveDir += transform.TransformDirection(Vector3.up);
-//            moveDir.Normalize();
-//            moveDir *= runningMinSpeed;
+            moveDir += transform.TransformDirection(Vector3.up);
+            moveDir.Normalize();
+            moveDir *= runningMinSpeed;
 
-            // Jump requested
-            if(inputJump == true) // player requested a wallkick
-            {
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-                // Apply wallpush 
-                runningToJumpingImpulse = Vector3.zero;                         // reset runningToJumpingImpulse in case player has been chaining the wallkicks
-                moveDir = Vector3.zero;                                         // and moveDir too because it's affected by previous runningToJumpingImpulse
-                float wallturnjumpExitAngleAdapated = (leftImpact) ? wallclimbExitAngle : -1 *wallclimbExitAngle; // Get direction angle from wall 
-                Quaternion originalRotation = transform.rotation;                                                       // store current rotation
-                wallturnjumpRotation = Quaternion.AngleAxis(wallturnjumpExitAngleAdapated, Vector3.right) * transform.rotation ; // compute wallkick quaternion rotation and store it 
-                // for smooth camera slerp during updateJump()
-
-                // Keep track of player's wallrunning speed and transfer it to wallkick's speed 
-                speedAtWallturnjump = speed;
-
-                // Set up the wallkick animation timer for updateJumping()
-                isWallTurnJumping = wallturnjumpingExitAnimationTime;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-                stopWallRun();
-            }
+            playerState = PlayerState.wallclimbing;
         }
-        else
-        {
-            stopWallClimb();
+        else {
+            if (playerState == PlayerState.wallclimbing)
+                canWallClimb = false;
+            wallclimbingTime = 0f;
+            playerState = PlayerState.jumping;
         }
+    
+    
+    
+    }
+
+
+
+
+    RaycastHit DoWallClimbCheck(Ray forwardRay)
+    {
+        RaycastHit hit;
+        Physics.Raycast(forwardRay.origin, forwardRay.direction, out hit, 1f);
+
+        return hit;
     }
 
 
