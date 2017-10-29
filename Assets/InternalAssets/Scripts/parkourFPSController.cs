@@ -12,6 +12,7 @@ using UnityEngine;
  *      rename runningMomentum as it's used for wallrun and slide too (for smoother transition between each state / movements)
  *      same for runningToJumpingImpulse used for wallkick
  *      Beautify the whole inspector for this class using [CustomEditor(typeof(parkourFPSController))} and OnInspectorGUI()
+ *      rework the way the player gain momentum in air as for now he can build up a ton of momentum even tho he is flying toward a wall, use dowallclimbcheck() ?
  */
 
 /*
@@ -386,8 +387,8 @@ public class parkourFPSController : MonoBehaviour
             if (groundFloor != previousWallWalltricked)
                 previousWallWalltricked = null;
 
-
-
+            // Reset aircontrol
+            previousAirControlDir = Vector3.zero;
 
             // get direction Vector3 from input
             moveDir = new Vector3(inputHorizontal, 0f, inputVertical);
@@ -482,7 +483,7 @@ public class parkourFPSController : MonoBehaviour
             return;
         }
 
-        if (isWallkicking > 0) // Check if player is wallkicking / Iterage over animation and ignore inputs
+        if(isWallkicking > 0) // Check if player is wallkicking / Iterate over animation and ignore inputs
         {
 
             // Turn Camera 
@@ -494,7 +495,7 @@ public class parkourFPSController : MonoBehaviour
             // Affect Translation
             moveDir.x = transform.forward.x * speedAtWallkick;
             moveDir.z = transform.forward.z * speedAtWallkick;
-            if (isWallkicking == wallrunExitAnimationTime) // first frame of kickglitch => give the player some boost on the Y
+            if(isWallkicking == wallrunExitAnimationTime) // first frame of kickglitch => give the player some boost on the Y
                 moveDir.y += wallkickHeight; //TODO : playtest with LD if they want the boost to be speed dependant
 
             // Decrease isWallkicking timer
@@ -507,6 +508,36 @@ public class parkourFPSController : MonoBehaviour
             // DO NOT proceed to continue normal behavior as wallckick state is not user inputs based
             return;
         }
+        else
+        if(isWallTurnJumping > 0) // Check if player is wallturnjumping / Iterate over animation and ignore inputs
+            {
+                // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+            // Decrease isWallkicking timer
+            isWallkicking -= Time.deltaTime;
+
+            if(isWallTurnJumping == wallturnjumpingExitAnimationTime) // first frame of wallturnjumping => give player the impulse he needs 
+            {
+                previousAirControlDir += (transform.up) * 50f + (transform.forward) * -50f;
+            }
+
+
+
+
+            // DO NOT proceed to continue normal behavior as wallckick state is not user inputs based
+            return;
+        }
         else // Player is "just" jumping, give him freedom to move the camera
         {
             updateCamera();
@@ -514,6 +545,13 @@ public class parkourFPSController : MonoBehaviour
 
         // Update wallrunCooldownLock
         if (wallrunCooldownLock > 0)
+        {
+            wallrunCooldownLock -= Time.deltaTime;
+            return;
+        }
+
+        // Update wallclimbCooldownLock
+        if (wallclimbCooldownLock > 0)
         {
             wallrunCooldownLock -= Time.deltaTime;
             return;
@@ -627,6 +665,16 @@ public class parkourFPSController : MonoBehaviour
 
 
 
+    RaycastHit DoWallClimbCheck(Ray forwardRay)
+    {
+        RaycastHit hit;
+        Physics.Raycast(forwardRay.origin, forwardRay.direction, out hit, 1f);
+
+        return hit;
+    }
+
+
+
     void updateWallrunning()
     {
         // Camera locked during wallrun => no updateCamera()
@@ -675,10 +723,9 @@ public class parkourFPSController : MonoBehaviour
             // update wallRunTime
             wallRunTime += Time.deltaTime;
 
-//            if (inputJumpDown == true) // player requested a wallkick
             if (inputJump == true) // player requested a wallkick
             {
-                // Apply wallkick 
+                // Prepare wallkick 
                 runningToJumpingImpulse = Vector3.zero;                         // reset runningToJumpingImpulse in case player has been chaining the wallkicks
                 moveDir = Vector3.zero;                                         // and moveDir too because it's affected by previous runningToJumpingImpulse
                 float wallrunExitAngleAdapated = (leftImpact) ? wallrunExitAngle : -1 * wallrunExitAngle;             // Get direction angle from wall 
@@ -721,6 +768,19 @@ public class parkourFPSController : MonoBehaviour
     void updateWallclimbing()
     {
 
+        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
         if ( !(inputVertical>0) ) // If player stoped pushing the "forward" button => fall
         {
             stopWallClimb();
@@ -731,8 +791,13 @@ public class parkourFPSController : MonoBehaviour
         forwardRay.direction *= 0.1f;
 
         RaycastHit hit = DoWallClimbCheck(forwardRay);
-        if (canWallClimb && hit.collider != null && Vector3.Angle(forwardRay.direction, hit.normal) > 165)
-        {
+        if (canWallClimb && hit.collider != null && Vector3.Angle(forwardRay.direction, hit.normal) > 180-wallrunEnterAngle)
+        {  // if canWallclimb && collision && attack angle is correct => wallclimb
+
+            // Make sure we set the state to wallclimbing 
+            playerState = PlayerState.wallclimbing;
+
+            // Update wallclimbingTime
             wallclimbingTime += Time.deltaTime;
 
             // Look up. Disabled for now.
@@ -745,30 +810,28 @@ public class parkourFPSController : MonoBehaviour
             moveDir.Normalize();
             moveDir *= runningMinSpeed;
 
-            playerState = PlayerState.wallclimbing;
+            if(inputJump)
+            {
+                Debug.Log("wallclimbTurnJump requested");
+
+                // Prepare wallturnjump 
+                runningToJumpingImpulse = Vector3.zero;                         // reset runningToJumpingImpulse in case player has been chaining the wallkicks
+                moveDir = Vector3.zero;                                         // and moveDir too because it's affected by previous runningToJumpingImpulse
+
+                // TODO turn the camera 
+
+
+                // Set up the wallkick animation timer for updateJumping()
+                isWallTurnJumping = wallturnjumpingExitAnimationTime;
+            }
+
         }
         else
-        {
-            if (playerState == PlayerState.wallclimbing)
-                canWallClimb = false;
-            wallclimbingTime = 0f;
-            playerState = PlayerState.jumping;
+        {   // If the player wallclimbed all the way to the ledge
+            stopWallClimb();
         }
-    
-    
-    
     }
 
-
-
-
-    RaycastHit DoWallClimbCheck(Ray forwardRay)
-    {
-        RaycastHit hit;
-        Physics.Raycast(forwardRay.origin, forwardRay.direction, out hit, 1f);
-
-        return hit;
-    }
 
 
     void stopWallClimb()
