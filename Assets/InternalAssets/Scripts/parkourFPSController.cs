@@ -235,7 +235,7 @@ Ray debugRay;
         inputJump = CrossPlatformInputManager.GetButton("Jump"); // Only capture Down Event for jump to avoid situation like : 
 //        inputJumpDown = CrossPlatformInputManager.GetButtonDown("Jump"); // Only capture Down Event for jump to avoid situation like : 
 //                                                                         // Player running right next to a wall, hit jump => wallrun and immediately after that wallkick
-        Debug.Log("inputJump : "+ inputJump);
+                    //TODO work around something to get correct input jump to avoid immediate running -> jumping -> wallrun -> jumping probllems
         inputSlide = CrossPlatformInputManager.GetButton("Slide");
 
     }
@@ -247,8 +247,6 @@ Ray debugRay;
             collisionDirection = col.impulse * -1;
             collisionDirection.Normalize();
             collisionDirection.y = 0;
-
-            Debug.LogWarning(collisionDirection);
 
             hitByBullet = true;
             bulletHitMomentum = 0f;
@@ -275,7 +273,6 @@ Ray debugRay;
             GameObject restartCheckpoint = CheckpointBehavior.getRestartCheckpoint();
             if(restartCheckpoint == null)
             {   // if no checkpoint has been reached => respawn player to his start location
-                Debug.Log("spawnTransformPosition : "+spawnTransformPosition);
                 transform.position = spawnTransformPosition;
                 mouseLook.Init(transform, spawnCameraTransform);
             }
@@ -370,7 +367,6 @@ Ray debugRay;
             // Jump Requested 
             if(inputJump)
             {   
-                Debug.Log("JUMP !!!");
                 runningToJumpingImpulse = moveDir;
                 playerState = PlayerState.jumping;
                 moveDir.y = jumpStrength + jumpStrength*(speed/maxNominalSpeed)*(jumpHeightSpeedFactor-1); 
@@ -638,7 +634,8 @@ Ray debugRay;
     void updateWallclimbing()
     {
     
-        if ( !(inputVertical>0) ) {
+        if ( !(inputVertical>0) )
+        {
             wallclimbingTime = 0.0f;
             if (playerState == PlayerState.wallclimbing)
                 canWallClimb = false;
@@ -650,8 +647,7 @@ Ray debugRay;
         forwardRay.direction *= 0.1f;
 
         RaycastHit hit = DoWallClimbCheck(forwardRay);
-        if (canWallClimb && hit.collider != null && 
-            wallclimbingTime < 0.5f && Vector3.Angle(forwardRay.direction, hit.normal) > 165){
+        if (canWallClimb && hit.collider != null && Vector3.Angle(forwardRay.direction, hit.normal) > 165){
 
             wallclimbingTime += Time.deltaTime;
 
@@ -668,6 +664,7 @@ Ray debugRay;
             playerState = PlayerState.wallclimbing;
         }
         else {
+            Debug.Log("sanity check");
             if (playerState == PlayerState.wallclimbing)
                 canWallClimb = false;
             wallclimbingTime = 0f;
