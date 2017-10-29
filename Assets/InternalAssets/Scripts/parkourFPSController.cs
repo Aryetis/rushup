@@ -152,6 +152,8 @@ Ray debugRay;
 	// Update is called once per frame
 	void Update ()
     {
+//if (previousWallWalltricked != null)
+//Debug.Log("previousWallWalltricked.name : " + previousWallWalltricked.name); 
         Debug.DrawRay(debugRay.origin, debugRay.direction*10);
         /*** CAPTURING INPUTS MOVED INSIDE FixedUpdate() ***/
 
@@ -272,7 +274,7 @@ Ray debugRay;
             moveDir = Vector3.zero;
             prevMoveDir = Vector3.zero; 
             previousAirControlDir = Vector3.zero;
-//            previousWallWalltricked = null;
+            previousWallWalltricked = null;
 
             // teleport player
             GameObject restartCheckpoint = CheckpointBehavior.getRestartCheckpoint();
@@ -483,7 +485,7 @@ Ray debugRay;
         // Update wallclimbCooldownLock
         if (wallclimbCooldownLock > 0)
         {
-            wallrunCooldownLock -= Time.deltaTime;
+            wallclimbCooldownLock -= Time.deltaTime;
         }
 
         // Do a wall run check and change state if successful.
@@ -498,7 +500,7 @@ Ray debugRay;
         // Do a wall climb check and I need to clean up these hits.
         RaycastHit hit  = DoWallClimbCheck(new Ray(transform.position, 
             transform.TransformDirection(Vector3.forward).normalized * 0.1f));
-        if (hit.collider != null && wallclimbCooldownLock <= 0 && hit.collider.gameObject != previousWallWalltricked)
+        if(hit.collider != null && wallclimbCooldownLock <= 0 && hit.collider.gameObject != previousWallWalltricked)
         {
             playerState = PlayerState.wallclimbing;
             previousWallWalltricked = hit.collider.gameObject;
