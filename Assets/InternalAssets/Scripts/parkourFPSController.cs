@@ -149,7 +149,7 @@ public class parkourFPSController : MonoBehaviour
     [SerializeField] private float killSpeedBonus = 5f;
     // TODO Speed boost given immediately for each ennemy killed
     [SerializeField] private float hoomingRange = 20f;
-    private bool isAttacking;
+    private Vector3 attackDirection;
 
     [Space(10)]
     [Header("Mouse Properties")]
@@ -196,6 +196,17 @@ public class parkourFPSController : MonoBehaviour
         /*** UPDATING grounded STATE ***/
         RaycastHit hit;
         grounded = Physics.Raycast(controller.transform.position, Vector3.down, out hit, (controller.height / 2f) + controller.skinWidth + slopeClimbingPermissionStep);
+
+        if (inputAttacking && playerState != PlayerState.attacking)
+        {
+            RaycastHit attackRay;
+            if (Physics.Raycast(controller.transform.position, controller.transform.forward, out attackRay, hoomingRange) && attackRay.collider.CompareTag("Enemy"))
+            {
+                playerState = PlayerState.attacking;
+                attackDirection = controller.transform.forward;
+                attackDirection.Normalize();
+            }
+        }
 
         /*** CALCULATING FORCE FROM INPUTS & STATE***/
         switch (playerState)
@@ -273,9 +284,9 @@ public class parkourFPSController : MonoBehaviour
         inputHorizontal = CrossPlatformInputManager.GetAxis("Horizontal");
         inputVertical = CrossPlatformInputManager.GetAxis("Vertical");
         inputJump = CrossPlatformInputManager.GetButtonDown("Jump"); // Only capture Down Event for jump to avoid situation like : 
-                                                                     // Player running right next to a wall, hit jump => wallrun and immediately after that wallkick
+        // Player running right next to a wall, hit jump => wallrun and immediately after that wallkick
         inputSlide = CrossPlatformInputManager.GetButton("Slide");
-
+        inputAttacking = CrossPlatformInputManager.GetButton("Attack");
     }
 
     void OnCollisionEnter(Collision col)
@@ -323,7 +334,12 @@ public class parkourFPSController : MonoBehaviour
                 transform.position = restartCheckpoint.transform.position;
                 mouseLook.Init(transform, restartCheckpoint.transform);
             }
+        }
 
+        else if (col.gameObject.CompareTag("Enemy"))
+        {
+            playerState = PlayerState.jumping;
+            Destroy(col.gameObject);
         }
     }
 
@@ -635,9 +651,9 @@ public class parkourFPSController : MonoBehaviour
                 float wallrunExitAngleAdapated = (leftImpact) ? wallrunExitAngle : -1 * wallrunExitAngle;             // Get direction angle from wall 
                 Quaternion originalRotation = transform.rotation;                                                    // store current rotation
                 wallKickRotation = Quaternion.AngleAxis(wallrunExitAngleAdapated, Vector3.up) * transform.rotation; // compute wallkick quaternion rotation and store it 
-                                                                                                                    // for smooth camera slerp during updateJump()
-
+                // for smooth camera slerp during updateJump()
                 // Keep track of player's wallrunning speed and transfer it to wallkick's speed 
+
                 speedAtWallkick = speed;
 
                 // Set up the wallkick animation timer for updateJumping()
@@ -796,14 +812,13 @@ public class parkourFPSController : MonoBehaviour
     }
 
 
-
     void updateAttacking()
     {
+        // Need to find a way to prevent player to go beyond target.
+        moveDir = attackDirection * attackingImpulse;
         // Update Camera look and freedom according to playerState
         updateCamera();
-
     }
-
 
 
     void updateCamera()
@@ -827,7 +842,6 @@ public class parkourFPSController : MonoBehaviour
     }
 
 
-
     private void updateSpeed()
     {
         speed = (float)Mathf.Sqrt(controller.velocity.x * controller.velocity.x +
@@ -837,8 +851,8 @@ public class parkourFPSController : MonoBehaviour
     public static string getPlayerState()
     {
         return playerState.ToString();
-    }
 
+    }
 
 
     public static string getSpeed()
