@@ -528,30 +528,21 @@ public class parkourFPSController : MonoBehaviour
             return;
         }
 
+        // Update wallrunCooldownLock
+        if (wallclimbCooldownLock > 0)
+        {
+            wallclimbCooldownLock -= Time.deltaTime;
+            return;
+        }
+
         // Do a wall climb check and I need to clean up these hits.
         RaycastHit hit  = DoWallClimbCheck(new Ray(transform.position, 
             transform.TransformDirection(Vector3.forward).normalized * 0.1f));
         if (hit.collider != null && wallclimbCooldownLock <= 0 && hit.collider.gameObject != previousWallWalltricked)
         {
-//            Debug.Log(" engage wallclimbing !");
-//            Debug.Log ("hit.collider.gameObject.gameObject.name : " + hit.collider.gameObject.gameObject.name); 
-//            Debug.Log("previousWallWalltricked : "+previousWallWalltricked);
-
-
             playerState = PlayerState.wallclimbing;
             previousWallWalltricked = hit.collider.gameObject;
-
-//            Debug.Log ("hit.collider.gameObject.gameObject.name : " + hit.collider.gameObject.gameObject.name); 
-//            Debug.Log("previousWallWalltricked : "+previousWallWalltricked);
             return;
-
-
-
-
-
-
-
-
         }
 
         // Set moveDir as impulse given on ground (will be countered as time goes by, by the airControlDir vector)
@@ -730,12 +721,9 @@ public class parkourFPSController : MonoBehaviour
     void updateWallclimbing()
     {
 
-        if ( !(inputVertical>0) )
+        if ( !(inputVertical>0) ) // If player stoped pushing the "forward" button => fall
         {
-            wallclimbingTime = 0.0f;
-            if (playerState == PlayerState.wallclimbing)
-                canWallClimb = false;
-            playerState = PlayerState.jumping;
+            stopWallClimb();
             return;
         }
 
@@ -761,10 +749,6 @@ public class parkourFPSController : MonoBehaviour
         }
         else
         {
-//            Debug.Log("---------------------------------------------"); // TRIGGERED WAYY TOO MUCH
-//            Debug.Log("canWallClimb : " + canWallClimb);
-//            Debug.Log("hit.collider != null : " + hit.collider != null);
-//            Debug.Log("Vector3.Angle(forwardRay.direction, hit.normal) > 165) : " + (Vector3.Angle(forwardRay.direction, hit.normal) > 165) );
             if (playerState == PlayerState.wallclimbing)
                 canWallClimb = false;
             wallclimbingTime = 0f;
