@@ -240,6 +240,8 @@ Ray debugRay;
 
     }
 
+
+
     void OnCollisionEnter(Collision col)
     {
         if(col.gameObject.CompareTag("Projectile"))
@@ -254,6 +256,8 @@ Ray debugRay;
             Destroy(col.gameObject);
         }
     }
+
+
 
     void OnTriggerEnter(Collider col)
     {
@@ -286,6 +290,8 @@ Ray debugRay;
         }
     }
 
+
+
     void updateBulletHit()
     {
         if (bulletHitMomentum < 1.0)
@@ -298,6 +304,8 @@ Ray debugRay;
             hitByBullet = false;
         }
     }
+
+
 
     void updateRunning()
     {
@@ -395,6 +403,8 @@ Ray debugRay;
         moveDir.y -= gravity * Time.deltaTime;
     }
 
+
+
     void updateJumping()
     {
         // Check if we're hitting the floor
@@ -452,11 +462,39 @@ Ray debugRay;
         }
 
         // Do a wall climb check and I need to clean up these hits.
-        wallHit = DoWallClimbCheck(new Ray(transform.position, 
+        RaycastHit hit  = DoWallClimbCheck(new Ray(transform.position, 
             transform.TransformDirection(Vector3.forward).normalized * 0.1f));
-        if (wallHit.collider != null) {
+        if (hit.collider != null && hit.collider.gameObject != previousWallWalltricked)
+        {
+
+
+
+
+
+
+
+
+            Debug.Log(" engage wallclimbing !");
             playerState = PlayerState.wallclimbing;
             return;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         }
 
         // Set moveDir as impulse given on ground (will be countered as time goes by, by the airControlDir vector)
@@ -633,7 +671,7 @@ Ray debugRay;
 
     void updateWallclimbing()
     {
-    
+
         if ( !(inputVertical>0) )
         {
             wallclimbingTime = 0.0f;
@@ -647,7 +685,10 @@ Ray debugRay;
         forwardRay.direction *= 0.1f;
 
         RaycastHit hit = DoWallClimbCheck(forwardRay);
-        if (canWallClimb && hit.collider != null && Vector3.Angle(forwardRay.direction, hit.normal) > 165){
+        if (canWallClimb && hit.collider != null && Vector3.Angle(forwardRay.direction, hit.normal) > 165)
+        {
+            // TODO put that in a stopWallClimbing()
+            previousWallWalltricked = hit.collider.gameObject;
 
             wallclimbingTime += Time.deltaTime;
 
@@ -663,8 +704,12 @@ Ray debugRay;
 
             playerState = PlayerState.wallclimbing;
         }
-        else {
-            Debug.Log("sanity check");
+        else
+        {
+            Debug.Log("---------------------------------------------"); // TRIGGERED WAYY TOO MUCH
+            Debug.Log("canWallClimb : " + canWallClimb);
+            Debug.Log("hit.collider != null : " + hit.collider != null);
+            Debug.Log("Vector3.Angle(forwardRay.direction, hit.normal) > 165) : " + (Vector3.Angle(forwardRay.direction, hit.normal) > 165) );
             if (playerState == PlayerState.wallclimbing)
                 canWallClimb = false;
             wallclimbingTime = 0f;
