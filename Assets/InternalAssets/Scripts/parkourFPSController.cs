@@ -326,7 +326,7 @@ public class parkourFPSController : MonoBehaviour
             moveDir = Vector3.zero;
             prevMoveDir = Vector3.zero;
             previousAirControlDir = Vector3.zero;
-//            previousWallWalltricked = null;
+            previousWallWalltricked = null;
 
             // teleport player
             GameObject restartCheckpoint = CheckpointBehavior.getRestartCheckpoint();
@@ -544,7 +544,7 @@ public class parkourFPSController : MonoBehaviour
         // Update wallclimbCooldownLock
         if (wallclimbCooldownLock > 0)
         {
-            wallrunCooldownLock -= Time.deltaTime;
+            wallclimbCooldownLock -= Time.deltaTime;
         }
 
         // Do a wall run check and change state if successful.
@@ -559,7 +559,7 @@ public class parkourFPSController : MonoBehaviour
         // Do a wall climb check and I need to clean up these hits.
         RaycastHit hit  = DoWallClimbCheck(new Ray(transform.position, 
             transform.TransformDirection(Vector3.forward).normalized * 0.1f));
-        if (hit.collider != null && wallclimbCooldownLock <= 0 && hit.collider.gameObject != previousWallWalltricked)
+        if(hit.collider != null && wallclimbCooldownLock <= 0 && hit.collider.gameObject != previousWallWalltricked)
         {
             playerState = PlayerState.wallclimbing;
             previousWallWalltricked = hit.collider.gameObject;
