@@ -466,8 +466,6 @@ Ray debugRay;
             // Decrease isWallkicking timer
             isWallTurnJumping -= Time.deltaTime;
 
-
-
             // DO NOT proceed to continue normal behavior as wallckick state is not user inputs based
             return;
         }
@@ -480,14 +478,12 @@ Ray debugRay;
         if (wallrunCooldownLock > 0)
         {
             wallrunCooldownLock -= Time.deltaTime;
-            return;
         }
 
         // Update wallclimbCooldownLock
         if (wallclimbCooldownLock > 0)
         {
             wallrunCooldownLock -= Time.deltaTime;
-            return;
         }
 
         // Do a wall run check and change state if successful.
@@ -496,13 +492,6 @@ Ray debugRay;
         {
             playerState = PlayerState.wallrunning;
             previousWallWalltricked = wallHit.collider.gameObject;
-            return;
-        }
-
-        // Update wallrunCooldownLock
-        if (wallclimbCooldownLock > 0)
-        {
-            wallclimbCooldownLock -= Time.deltaTime;
             return;
         }
 
@@ -744,20 +733,20 @@ Ray debugRay;
 
             if(inputJump)
             {
-                Debug.Log("wallclimbTurnJump requested");
-
                 // Prepare wallturnjump 
                 runningToJumpingImpulse = Vector3.zero;                         // reset runningToJumpingImpulse in case player has been chaining the wallkicks
                 moveDir = Vector3.zero;                                         // and moveDir too because it's affected by previous runningToJumpingImpulse
 
 
-                moveDir += (transform.up) * 50f + (transform.forward) * -50f;
+                moveDir += (transform.up) * 25f + (transform.forward) * -25f;
 
                 // TODO turn the camera 
 
 
                 // Set up the wallkick animation timer for updateJumping()
                 isWallTurnJumping = wallturnjumpingExitAnimationTime;
+
+                stopWallClimb();
             }
 
         }
