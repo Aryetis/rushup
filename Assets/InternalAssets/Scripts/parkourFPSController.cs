@@ -14,10 +14,10 @@ using UnityEngine;
  *      _ probably dozens of little things I can't think about right now
  *      _ check if controls are working on Android ... it shoulds otherwise there's close to no point using CrossPlatformInput
  *      _ try to use controller.isGrounded to update grounded variable every fixedUpdate();
+ *      _ find out why wallclimbYMomentum is it ticking slower than it should
  * 
  * TODO (before the end of the project) list :
  *      _ find a more elegant solution to the immediate jump => wall => jump problem
- *      _ makes wallclimbYMomentum works !
  *      _ smooth camera movements during wallclimb & wallclimbturn
  */
 
@@ -131,10 +131,11 @@ public class parkourFPSController : MonoBehaviour
     [Header("Wallclimb State Variables")]
     [SerializeField] private float wallclimbExitAngle = 60f;                        // "Y axis Angle" the player will exit the wallclimb if he decides to jump 
     [SerializeField] private float wallclimbExitForce = 30f;                        // Impulse force given to the player during a wallclimbturn
-    [SerializeField] private float wallclimbDecelerationFactor = 10f;
+    [SerializeField] private float wallclimbDecelerationFactor = 20f;               // Loose wallclimbDecelerationFactor from wallclimbYMomentum (set by wallclimbInitialYMomentum) every second ish .... 
     [SerializeField] private float wallclimbCoolDown = 0.25f;                       // In seconds, Prevent player from wallclimbing too much in a row
     [SerializeField] private float wallturnjumpingExitAnimationTime = 0.5f;         // Time during wich the camera pans out 180° => player inputs will be unresponsive !!!
     [SerializeField] private float wallclimbInitialYMomentum = 20f;                 // When player hits the wall he will immediately start climbing the wall at wallclimbInitialMomentum
+    [SerializeField] private float wallclimbMaxSpeed = 10f;                         // Speed the player will be wallclimbing at, decrease over time according to wallclimbDecelerationFactor
     private Quaternion wallturnjumpRotation;                                        // Store the rotation needed to turn the camera during a wallturnjump sequence
     private float speedAtEnterOfWallclimb;                                          // Store the speed player had when initially hitting the wallclimb
     private Vector3 wallclimbturnExitVector;                                        // Direction the player will go when executing a wallclimbturn
@@ -559,6 +560,7 @@ public class parkourFPSController : MonoBehaviour
             playerState = PlayerState.wallclimbing;
             speedAtEnterOfWallclimb = speed;
             wallclimbYMomentum = wallclimbInitialYMomentum;
+            moveDir = Vector3.zero; // null out the moveDir as it will be updated from UpdateWallclimbing()
             previousWallWalltricked = hit.collider.gameObject;
             return;
         }
@@ -791,10 +793,11 @@ public class parkourFPSController : MonoBehaviour
             }
 
 
-            // Move up.
-//            moveDir += transform.TransformDirection(Vector3.up) * (speedAtEnterOfWallclimb/maxNominalSpeed);
+            // Move up 
+            moveDir.y = transform.TransformDirection(Vector3.up).y * ((wallclimbYMomentum/wallclimbInitialYMomentum) * wallclimbMaxSpeed ); // go up * momentum * predetermined max speed
+                      
+//            moveDir += transform.TransformDirection(Vector3.up) * (wallclimbYMomentum/maxNominalSpeed);
 //            moveDir.Normalize();
-//            moveDir *= runningMinSpeed;
 
             if(inputJump)
             {
