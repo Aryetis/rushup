@@ -466,12 +466,6 @@ Ray debugRay;
             // Decrease isWallkicking timer
             isWallkicking -= Time.deltaTime;
 
-            if(isWallTurnJumping == wallturnjumpingExitAnimationTime) // first frame of wallturnjumping => give player the impulse he needs 
-            {
-                previousAirControlDir += (transform.up) * 50f + (transform.forward) * -50f;
-            }
-
-
 
 
             // DO NOT proceed to continue normal behavior as wallckick state is not user inputs based
@@ -755,6 +749,9 @@ Ray debugRay;
                 // Prepare wallturnjump 
                 runningToJumpingImpulse = Vector3.zero;                         // reset runningToJumpingImpulse in case player has been chaining the wallkicks
                 moveDir = Vector3.zero;                                         // and moveDir too because it's affected by previous runningToJumpingImpulse
+
+
+                moveDir += (transform.up) * 50f + (transform.forward) * -50f;
 
                 // TODO turn the camera 
 
