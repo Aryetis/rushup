@@ -13,6 +13,7 @@ using UnityEngine;
  *      same for runningToJumpingImpulse used for wallkick
  *      Beautify the whole inspector for this class using [CustomEditor(typeof(parkourFPSController))} and OnInspectorGUI()
  *      rework the way the player gain momentum in air as for now he can build up a ton of momentum even tho he is flying toward a wall, use dowallclimbcheck() ?
+ *      make she height of wallclimb depends of the player's speed when he hits the wall
  */
 
 /*
@@ -45,8 +46,8 @@ public class ReadOnlyDrawer : PropertyDrawer
 
 public class parkourFPSController : MonoBehaviour
 {
-    Ray debugRay;
-    /* Player's state variable*/
+Ray debugRay, debugRay2, debugRay3; 
+    /*Player's state variable*/
     private enum PlayerState {running, jumping, wallrunning, wallclimbing, sliding, edging, pushing, attacking, ejecting}; // Describing current state of the player : edging <=> grabed the edge of a cliff; pushing <=> pushing up from edging state; etc . jumping can be used pretty much as the default state
     private bool canWallRun = false;                                                // Describe if player is in a state that allows for him to start wallrunning (can't wallrun during a slide, duh)
     private bool canWallClimb = false;                                              // Describe if player is in a state that allows for him to start wallclimbing 
@@ -125,16 +126,16 @@ public class parkourFPSController : MonoBehaviour
 
     [Space(10)]
     [Header("Wallclimb State Variables")]
-    [SerializeField] private float wallclimbExitAngle = 30f;                        // Y axis Angle the player will exit the wallclimb if he decides to jump 
+    [SerializeField] private float wallclimbExitAngle = 60f;                        // Y axis Angle the player will exit the wallclimb if he decides to jump 
+    [SerializeField] private float wallclimbExitForce = 30f;
     [Range(0.0f, 0.5f)] [SerializeField] private float wallclimbDecelerationFactor = 0.25f; // Not really impacting the player's speed or height during wallclimb BUT will impact how much momentum he kept from this wallclimb
                                                                                             // the bigger => the more momentum/speed lost from the wallclimb for incomingn running phase or such
     [SerializeField] private float wallclimbCoolDown = 0.25f;                       // In seconds, Prevent player from wallclimbing too much in a row
     [SerializeField] private float wallturnjumpingExitAnimationTime = 0.5f;
-    [SerializeField] private float wallturnjumpExitImpulseHeight = 30f;                        // A wallkick (jump when wallruning) gives the player a boost on the Y axis of wallkickHeight 
     private Quaternion wallturnjumpRotation;
-    private float speedAtWallturnjump;
-    private Vector3 wallturnjumpImpulse;
-    public string _wallClimbAngle_ = "(90-wallrunEnterAngle)*2";                    // Just indicating to LDs that wallClimbAngle is basically whatever angle is remaining 
+    private float speedAtEnterOfWallclimb;
+    private Vector3 wallclimbturnExitVector;
+    public string _wallClimbAngle_ = "whatever angle is remaining from wallrunEnterAngle"; // Just indicating to LDs that wallClimbAngle is basically whatever angle is remaining 
     private float wallclimbingTime = 0f;                                            // How long the player has been wallclimbing
     private float speedY;                                                           // Vertical speed
     private float isWallTurnJumping;                                                // Since how long the player has been wallkicking ?
@@ -200,7 +201,11 @@ public class parkourFPSController : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        Debug.DrawRay(debugRay.origin, debugRay.direction * 10);
+//if (previousWallWalltricked != null)
+//Debug.Log("previousWallWalltricked.name : " + previousWallWalltricked.name); 
+Debug.DrawRay(debugRay.origin, debugRay.direction*10, Color.blue);
+Debug.DrawRay(debugRay2.origin, debugRay2.direction*10, Color.white);
+Debug.DrawRay(debugRay3.origin, debugRay3.direction*10, Color.red);
         /*** CAPTURING INPUTS MOVED INSIDE FixedUpdate() ***/
 
         /*** UPDATING speed (for UI and various update[State]() ***/
@@ -514,27 +519,14 @@ public class parkourFPSController : MonoBehaviour
         else
         if(isWallTurnJumping > 0) // Check if player is wallturnjumping / Iterate over animation and ignore inputs
         {
-            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-
             // Turn Camera 
             transform.rotation = Quaternion.Slerp(transform.rotation, wallturnJumpRotation, 350f * Time.deltaTime);
+            //TODO SMOOTH THIS !
 
             // Reset mouseLook internals quaternion has we indirectly messed our own but not its
             mouseLook.Init(transform, camera.transform);
 
-            moveDir = wallturnjumpImpulse;
+            moveDir = wallclimbturnExitVector;
             previousAirControlDir = moveDir;
 
             // Decrease isWallkicking timer
@@ -569,12 +561,12 @@ public class parkourFPSController : MonoBehaviour
             return;
         }
 
-        // Do a wall climb check and I need to clean up these hits.
-        RaycastHit hit  = DoWallClimbCheck(new Ray(transform.position, 
-            transform.TransformDirection(Vector3.forward).normalized * 0.1f));
+        // Do a wall climb check and change state
+        RaycastHit hit  = walclimbCheck(new Ray(transform.position, transform.TransformDirection(Vector3.forward).normalized * 0.1f));
         if(hit.collider != null && wallclimbCooldownLock <= 0 && hit.collider.gameObject != previousWallWalltricked)
         {
             playerState = PlayerState.wallclimbing;
+            speedAtEnterOfWallclimb = speed;
             previousWallWalltricked = hit.collider.gameObject;
             return;
         }
@@ -661,7 +653,7 @@ public class parkourFPSController : MonoBehaviour
 
 
 
-    RaycastHit DoWallClimbCheck(Ray forwardRay)
+    RaycastHit walclimbCheck(Ray forwardRay)
     {
         RaycastHit hit;
         Physics.Raycast(forwardRay.origin, forwardRay.direction, out hit, 1f);
@@ -762,20 +754,6 @@ public class parkourFPSController : MonoBehaviour
 
     void updateWallclimbing()
     {
-
-        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
         if ( !(inputVertical>0) ) // If player stoped pushing the "forward" button => fall
         {
             stopWallClimb();
@@ -785,7 +763,7 @@ public class parkourFPSController : MonoBehaviour
         Ray forwardRay = new Ray(transform.position, transform.TransformDirection(Vector3.forward).normalized);
         forwardRay.direction *= 0.1f;
 
-        RaycastHit hit = DoWallClimbCheck(forwardRay);
+        RaycastHit hit = walclimbCheck(forwardRay);
         if (canWallClimb && hit.collider != null && Vector3.Angle(forwardRay.direction, hit.normal) > 180-wallrunEnterAngle)
         {  // if canWallclimb && collision && attack angle is correct => wallclimb
 
@@ -798,7 +776,22 @@ public class parkourFPSController : MonoBehaviour
             // Look up. Disabled for now.
             Quaternion lookDirection = Quaternion.LookRotation(hit.normal * -1);
             transform.rotation = Quaternion.Slerp(transform.rotation, lookDirection, 3.5f * Time.deltaTime);
-//            camera.transform.Rotate(-85f * (climbTime / 0.5f), 0f, 0f); //            ^ Magic number for tweaking look time
+            //TODO SMOOTH THIS !
+
+            // TODO NOW MAKE HEIGHT DEPENDING OF speedAtEnterOfWallclimb and disminish runningmomentum !!! 
+            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+            //speedAtEnterOfWallclimb
+
+
 
             // Move up.
             moveDir += transform.TransformDirection(Vector3.up);
@@ -815,22 +808,8 @@ public class parkourFPSController : MonoBehaviour
                 wallturnJumpRotation = Quaternion.AngleAxis(180f, Vector3.up) * transform.rotation ; // compute wallturnjump quaternion 180° rotation and store it 
                                                                                                      // for smooth camera slerp during updateJump()
 
-                // DEBUG ONLY used to push player of wall from here, 
-                // moveDir += (transform.up) * 25f + (transform.forward) * -25f;
-               
-
-                wallturnjumpImpulse = (transform.up) * 25f + (transform.forward) * -25f;
-
-
-                Quaternion foo = Quaternion.AngleAxis(60, hit.normal);
-                Vector3 bar = foo.eulerAngles * 25f;
-
-
-                debugRay = new Ray(transform.position, bar);
-//                Debug.Log("wallturnjumpImpulse : " + wallturnjumpImpulse);
-//                Quaternion foo = Quaternion.AngleAxis(60, transform.up);
-//                Vector3 bar = foo.eulerAngles * 25f;
-//                Debug.Log("bar : " + bar);
+                // Setting up the impulse vector for the wallclimbturn jump
+                wallclimbturnExitVector =  Quaternion.Euler(-wallclimbExitAngle,0,0) * hit.normal.normalized * wallclimbExitForce  ; 
 
                 // Set up the wallkick animation timer for updateJumping()
                 isWallTurnJumping = wallturnjumpingExitAnimationTime;
