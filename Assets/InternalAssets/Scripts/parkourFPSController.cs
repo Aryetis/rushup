@@ -303,8 +303,6 @@ public class parkourFPSController : MonoBehaviour
             collisionDirection.Normalize();
             collisionDirection.y = 0;
 
-            Debug.LogWarning(collisionDirection);
-
             hitByBullet = true;
             bulletHitMomentum = 0f;
 
@@ -330,7 +328,7 @@ public class parkourFPSController : MonoBehaviour
             GameObject restartCheckpoint = CheckpointBehavior.getRestartCheckpoint();
             if (restartCheckpoint == null)
             {   // if no checkpoint has been reached => respawn player to his start location
-                Debug.Log("spawnTransformPosition : " + spawnTransformPosition);
+                Debug.Log("spawnTransformPosition : "+spawnTransformPosition);
                 transform.position = spawnTransformPosition;
                 mouseLook.Init(transform, spawnCameraTransform);
             }
@@ -699,7 +697,8 @@ public class parkourFPSController : MonoBehaviour
     void updateWallclimbing()
     {
     
-        if ( !(inputVertical>0) ) {
+        if ( !(inputVertical>0) )
+        {
             wallclimbingTime = 0.0f;
             if (playerState == PlayerState.wallclimbing)
                 canWallClimb = false;
@@ -711,8 +710,7 @@ public class parkourFPSController : MonoBehaviour
         forwardRay.direction *= 0.1f;
 
         RaycastHit hit = DoWallClimbCheck(forwardRay);
-        if (canWallClimb && hit.collider != null && 
-            wallclimbingTime < 0.5f && Vector3.Angle(forwardRay.direction, hit.normal) > 165){
+        if (canWallClimb && hit.collider != null && Vector3.Angle(forwardRay.direction, hit.normal) > 165){
 
             wallclimbingTime += Time.deltaTime;
 
@@ -729,6 +727,7 @@ public class parkourFPSController : MonoBehaviour
             playerState = PlayerState.wallclimbing;
         }
         else {
+            Debug.Log("sanity check");
             if (playerState == PlayerState.wallclimbing)
                 canWallClimb = false;
             wallclimbingTime = 0f;
