@@ -5,11 +5,15 @@ using UnityEngine;
 
 public class FadeInOut : MonoBehaviour
 {
-    private enum FadeStatus {fadein, fadeOut}; // Describing current state of the player : edging <=> grabed the edge of a cliff; pushing <=> pushing up from edging state; etc . jumping can be used pretty much as the default state
+    private enum FadeStatus {fadein, pause,  fadeOut}; // Describing current state of the player : edging <=> grabed the edge of a cliff; pushing <=> pushing up from edging state; etc . jumping can be used pretty much as the default state
 
-    [SerializeField] private float fadeInTime = 2f;
-    [SerializeField] private float fadeOutTime = 2f;
+    [SerializeField] private float fadeInTime = 1f;
+    [SerializeField] private float pauseTime = 2f;
+    [SerializeField] private float fadeOutTime = 1f;
+    [SerializeField] private UnityEngine.UI.Image blackScreen; 
     private FadeStatus status;
+    private Color actualColor;
+
 
 	// Use this for initialization
 	void Start ()
@@ -20,19 +24,34 @@ public class FadeInOut : MonoBehaviour
 	// Update is called once per frame
 	void Update ()
     {
+        // Fade in
         if (status == FadeStatus.fadein)
         {
             fadeInTime -= Time.deltaTime;
+
+            blackScreen.CrossFadeAlpha(0, fadeInTime, false);
+
             if (fadeInTime < 0)
+                status = FadeStatus.pause;
+        }
+        // Pause for dramatic effect
+        else if (status == FadeStatus.pause)
+        {
+            pauseTime -= Time.deltaTime;
+
+            if (pauseTime < 0)
                 status = FadeStatus.fadeOut;
         }
-        else
+        // Fade out
+        else if (status == FadeStatus.fadeOut)
         {
+            Debug.Log("hello");
             fadeOutTime -= Time.deltaTime;
+
+            blackScreen.CrossFadeAlpha(1, fadeOutTime, false);
+
             if (fadeOutTime < 0)
-            {
                 SceneManager.LoadScene("MainMenu");
-            }
         }
 	}
 }
