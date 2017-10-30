@@ -21,34 +21,6 @@ using UnityEngine;
  *      _ smooth camera movements during wallclimb & wallclimbturn
  */
 
-/*
- * ReadOnlyAttribute class shamelessely stolen from It3ration & scottmontgomerie: 
- * http://answers.unity3d.com/questions/489942/how-to-make-a-readonly-property-in-inspector.html
-*  TODO : Beautify the whole inspector for this class using [CustomEditor(typeof(parkourFPSController))} and OnInspectorGUI()
- */
-public class ReadOnlyAttribute : PropertyAttribute
-{ }
-
-[CustomPropertyDrawer(typeof(ReadOnlyAttribute))]
-public class ReadOnlyDrawer : PropertyDrawer
-{
-    public override float GetPropertyHeight(SerializedProperty property,
-                                            GUIContent label)
-    {
-        return EditorGUI.GetPropertyHeight(property, label, true);
-    }
-
-    public override void OnGUI(Rect position,
-                               SerializedProperty property,
-                               GUIContent label)
-
-    {
-        GUI.enabled = false;
-        EditorGUI.PropertyField(position, property, label, true);
-        GUI.enabled = true;
-    }
-}
-
 public class parkourFPSController : MonoBehaviour
 {
     /*Player's state variable*/
@@ -74,9 +46,8 @@ public class parkourFPSController : MonoBehaviour
     private bool inputAttacking;                                                    // Is attacking key pressed ?
     private static PlayerState playerState = PlayerState.running;                   // Describe current player state
     private static float speed;                                                     // Player speed along x and z axis => NOT taking into account Y axis (no falling speed displayed)
-    private Vector3 moveDir = Vector3.zero;                                           // Current frame player's movement vector
-    private Vector3 prevMoveDir = Vector3.zero;                                       // Previous frame player's movement
-    private bool prevGroundedState;                                                 // Previous frame's grounded
+    private Vector3 moveDir=Vector3.zero;                                           // Current frame player's movement vector
+    private Vector3 prevMoveDir=Vector3.zero;                                       // Previous frame player's movement
     private bool grounded;      // Not using controller.isGrounded value because result is based on the PREVIOUS MOVE state
                                 // Resulting in unreliable state when running up on slanted floors
                                 // ( https://forum.unity.com/threads/charactercontroller-isgrounded-returning-unreliable-state.494786/ ) 
@@ -197,9 +168,9 @@ public class parkourFPSController : MonoBehaviour
     }
 
 
-
-    // Update is called once per frame
-    void Update()
+	
+	// Update is called once per frame
+	void Update ()
     {
         /*** CAPTURING INPUTS MOVED INSIDE FixedUpdate() ***/
 
@@ -298,6 +269,9 @@ public class parkourFPSController : MonoBehaviour
 
         inputJump = CrossPlatformInputManager.GetButton("Jump"); // Only capture Down Event for jump to avoid situation like : 
         inputSlide = CrossPlatformInputManager.GetButton("Slide");
+
+        inputJump = CrossPlatformInputManager.GetButton("Jump"); // Only capture Down Event for jump to avoid situation like : 
+        inputSlide = CrossPlatformInputManager.GetButton("Slide");
         inputAttacking = CrossPlatformInputManager.GetButton("Attack");
     }
 
@@ -334,7 +308,6 @@ public class parkourFPSController : MonoBehaviour
             GameObject restartCheckpoint = CheckpointBehavior.getRestartCheckpoint();
             if (restartCheckpoint == null)
             {   // if no checkpoint has been reached => respawn player to his start location
-                Debug.Log("spawnTransformPosition : "+spawnTransformPosition);
                 transform.position = spawnTransformPosition;
                 mouseLook.Init(transform, spawnCameraTransform);
             }
