@@ -134,6 +134,8 @@ public class parkourFPSController : MonoBehaviour
     // TODO Speed boost given immediately for each ennemy killed
     [SerializeField] private float hoomingRange = 20f;
     private Vector3 attackDirection;
+    [SerializeField] private float hoomingAttackMomentum = 1f;
+    private float hoomingAttackCurrentMomentum = 0f;
 
     [Space(10)]
     [Header("Mouse Properties")]
@@ -186,6 +188,7 @@ public class parkourFPSController : MonoBehaviour
             RaycastHit attackRay;
             if (Physics.Raycast(controller.transform.position, controller.transform.forward, out attackRay, hoomingRange) && attackRay.collider.CompareTag("Enemy"))
             {
+                hoomingAttackCurrentMomentum = 0f;
                 playerState = PlayerState.attacking;
                 attackDirection = controller.transform.forward;
                 attackDirection.Normalize();
@@ -883,8 +886,16 @@ public class parkourFPSController : MonoBehaviour
 
     void updateAttacking()
     {
-        // Need to find a way to prevent player to go beyond target.
-        moveDir = attackDirection * attackingImpulse;
+        hoomingAttackCurrentMomentum += Time.deltaTime;
+        if(hoomingAttackCurrentMomentum < hoomingAttackMomentum)
+        {
+            // Need to find a way to prevent player to go beyond target.
+            moveDir = attackDirection * attackingImpulse;
+        } else
+        {
+            playerState = PlayerState.running;
+        }
+        
         // Update Camera look and freedom according to playerState
         updateCamera();
     }
