@@ -20,13 +20,8 @@ using UnityEditor;
 *  TODO : Beautify the whole inspector for this class using [CustomEditor(typeof(parkourFPSController))} and OnInspectorGUI()
  */
 public class ReadOnlyAttribute : PropertyAttribute
-<<<<<<< HEAD
 { }
-=======
-{
-}
 
->>>>>>> 1155ecb7176c5c7d6748ce333de8f02f90384b41
 [CustomPropertyDrawer(typeof(ReadOnlyAttribute))]
 public class ReadOnlyDrawer : PropertyDrawer
 {
