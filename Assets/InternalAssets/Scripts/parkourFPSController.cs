@@ -761,7 +761,66 @@ Debug.DrawRay(debugRay2.origin, debugRay2.direction * 100, Color.blue);
 
                 // Setting up the impulse vector for the wallclimbturn jump
                 wallclimbturnExitVector = Quaternion.AngleAxis(wallclimbExitAngle, Vector3.Cross(hit.normal, Vector3.up)) * hit.normal * wallclimbExitForce; 
+                /**
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * TODO :
+Merge                                                           DONE
+Menus                                                           DONE
+Music                                                           DONE
+Tutorial text zone                                              DONE
+Curseur UI                                                      DONE        
+reset vitesse duruing respawn                                   DONE
+nettoyer code, le documenter                                    DOING 
+corriger system de jump                                         DONE
+doc technique                                                   
+doc projet organisation     
+mouvement de caméra fluide pour wallclimb et wallturnjump       
+TESTER LA BUILD WINDOWS POUR VOIR DIFFERENCE AVEC EDITOR !!!!!! 
 
+
+fix on checkpoint direction
+son de pas, saut, atterissage                                   
+killSpeedBonus
+
+
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * */
                 // Set up the wallkick animation timer for updateJumping()
                 isWallTurnJumping = wallturnjumpingExitAnimationTime;
                 stopWallClimb();
