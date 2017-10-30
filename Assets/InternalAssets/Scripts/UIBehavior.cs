@@ -10,15 +10,17 @@ public class UIBehavior : MonoBehaviour
     private UnityEngine.UI.Text debugZoneText;        // Text printed on the UI containing debug information
     private UnityEngine.UI.Text timerText;            // Text printed on the UI containing timer
     private UnityEngine.UI.Text SectionTimeTableText; // Text printed on the UI containing timer
+    private static UnityEngine.UI.Text triggeredZoneText;    // Text printed on the UI containing triggered zone text
 
-	// Use this for initialization
-	void Start ()
+    // Use this for initialization
+    void Start ()
     {
         speedOMeterText = GameObject.Find ("SpeedOMeter").GetComponent<UnityEngine.UI.Text>();
         debugZoneText = GameObject.Find ("DebugZone").GetComponent<UnityEngine.UI.Text>();
         timerText = GameObject.Find("Timer").GetComponent<UnityEngine.UI.Text>();
         SectionTimeTableText = GameObject.Find("SectionTimeTable").GetComponent<UnityEngine.UI.Text>();
-	}
+        triggeredZoneText = GameObject.Find("triggeredZoneText").GetComponent<UnityEngine.UI.Text>();
+    }
 	
 	// Update is called once per frame
 	void Update ()
@@ -66,5 +68,10 @@ public class UIBehavior : MonoBehaviour
             SectionTimeTableText.text += timeEntry;
             sectionEntry++;
         }
+    }
+
+    public static void setTriggeredZoneText(string text)
+    {
+        triggeredZoneText.text = text;
     }
 }
