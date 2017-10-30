@@ -28,12 +28,10 @@ public class parkourFPSController : MonoBehaviour
     private enum PlayerState {running, jumping, wallrunning, wallclimbing, sliding, edging, pushing, attacking, ejecting}; // Describing current state of the player : edging <=> grabed the edge of a cliff; pushing <=> pushing up from edging state; etc . jumping can be used pretty much as the default state
     private bool canWallRun = false;                                                // Describe if player is in a state that allows for him to start wallrunning (can't wallrun during a slide, duh)
     private bool canWallClimb = false;                                              // Describe if player is in a state that allows for him to start wallclimbing 
-    private bool canAttack = false;                                                 // Describe if player is in a state that allows for him to start attacking
-    private bool canSlide = false;                                                  // Describe if player is in a state that allows for him to start sliding
 
     [Header("Global Variables")]
     [SerializeField]
-    private float gravity = 20f;                                   // Gravity applied to the vector on the Y axis
+    private float gravity = 20f;                                                    // Gravity applied to the vector on the Y axis
     [SerializeField] private float jumpStrength = 20f;                              // Impulse given at the start of a jump
     [SerializeField] private float slopeClimbingPermissionStep = 0.25f;             // Height shift allowed on Y axis between two frames to considere if the player is grounded or not 
     [SerializeField] private float maxNominalSpeed = 50f;                           // Player's max speed without any killSpeedBonus
@@ -61,7 +59,7 @@ public class parkourFPSController : MonoBehaviour
     [Space(10)]
     [Header("Running State Variables")]
     [SerializeField]
-    private float runningMinSpeed = 10f;                           // Player will start running at this speed
+    private float runningMinSpeed = 10f;                                            // Player will start running at this speed
     [SerializeField] private float runningRampUpTime = 0.2f;                        // Time in seconds for player to reach maxNominalSpeed (in seconds)
     [Range(0.0f, 1.0f)] [SerializeField] private float runningInertiaFactor = 0.9f; // [0;1] the bigger the less current input will impact the outcome / the more slippery the player wil be
     [SerializeField] private float runningDecelerationFactor = 0.5f;                // will decelerate at "runningDecelerationFactor" the speed it accelerates
@@ -71,7 +69,7 @@ public class parkourFPSController : MonoBehaviour
     [Space(10)]
     [Header("Airborne State Variables")]
     [SerializeField]
-    private float airControlFactor = 2.0f;                         // Determine how much the inputs performed by the player while airborne impact his direction
+private float airControlFactor = 2.0f;                                              // Determine how much the inputs performed by the player while airborne impact his direction
     private Vector3 runningToJumpingImpulse = Vector3.zero;                         // moveDir vector at the moment of the jump, used to kickstart the direction of the jump
     private Vector3 previousAirControlDir;                                          // direction of the airborne player at the previous frame
     private float wallrunCooldownLock;                                              // player just wallkicked => forbid him to wallrun till ejectTime > 0
@@ -80,7 +78,7 @@ public class parkourFPSController : MonoBehaviour
     [Space(10)]
     [Header("Wallrun State Variables")]
     [SerializeField]
-    float wallrunMaxSpeed = 50f;                                   // Max Speed during wallrun (speed will increase over time)
+    float wallrunMaxSpeed = 50f;                                                    // Max Speed during wallrun (speed will increase over time)
     [SerializeField] private float wallrunningGravityFactor = 2f;                   // The bigger => the less gravity will impact player during wallrun
     [Range(0.0f, 0.1f)] [SerializeField] private float wallrunningDecelerationFactor = 0.025f; // Player's momentum will decrease by deltaTime*wallrunningDecelerationFactor at each frame
     [SerializeField] private float wallrunCoolDown = 0.25f;                         // In seconds, Prevent player from hitting too much wallrun in a row
@@ -119,9 +117,6 @@ public class parkourFPSController : MonoBehaviour
 
     [Space(10)]
     [Header("Sliding State Variables")]
-    [SerializeField]
-    private float slidingMinSpeed = 10f;   // TODO
-
     [SerializeField] private float crouchingHeight = 0.3f;
     [SerializeField] private float slidingDecelerationFactor = 0.5f;                // will decelerate at "runningDecelerationFactor" the speed it accelerates
     private float originalHeight;
@@ -132,7 +127,6 @@ public class parkourFPSController : MonoBehaviour
     private float attackingImpulse = 50f;
     // TODO
     [SerializeField] private float killSpeedBonus = 5f;
-    // TODO Speed boost given immediately for each ennemy killed
     [SerializeField] private float hoomingRange = 20f;
     private Vector3 attackDirection;
 
@@ -169,15 +163,26 @@ public class parkourFPSController : MonoBehaviour
 
 	
 	// Update is called once per frame
-//	void Update ()
+	void Update ()
 // Not used => Comment it for better performance 
-//    {}
+    {
+
+        /*** LOCK mouseLook TO PREVENT UNWANTED INPUTS ***/
+        mouseLook.UpdateCursorLock();
+
+
+
+
+
+
+    }
 
 
 
     // FixedUpdate is called once per physic cycle
     void FixedUpdate()
     {
+
         /*** CAPTURING INPUTS ***/
         // Doing this inside FixedUpdate to make sure we didn't miss any inputs in case of lag
         inputHorizontal = CrossPlatformInputManager.GetAxis("Horizontal");
@@ -264,18 +269,6 @@ public class parkourFPSController : MonoBehaviour
 
         /*** CONSERVING DATA FOR FUTURE REFERENCES ***/
         prevMoveDir = moveDir;
-
-        /*** LOCK mouseLook TO PREVENT UNWANTED INPUTS ***/
-        mouseLook.UpdateCursorLock();
-
-
-
-
-
-
-
-
-
 
     }
 
@@ -748,19 +741,6 @@ public class parkourFPSController : MonoBehaviour
             transform.rotation = Quaternion.Slerp(transform.rotation, lookDirection, 3.5f * Time.fixedDeltaTime);
             //TODO SMOOTH THIS !
 
-            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-
-            Debug.Log("wallclimbYMomentum : " + wallclimbYMomentum);
-
             // Decrement wallclimbYMomentum
             wallclimbYMomentum -= wallclimbDecelerationFactor*Time.fixedDeltaTime;
             if (wallclimbYMomentum < 0)
@@ -768,12 +748,8 @@ public class parkourFPSController : MonoBehaviour
                 wallclimbYMomentum = 0;
             }
 
-
             // Move up 
             moveDir.y = transform.TransformDirection(Vector3.up).y * ((wallclimbYMomentum/wallclimbInitialYMomentum) * wallclimbMaxSpeed ); // go up * momentum * predetermined max speed
-                      
-//            moveDir += transform.TransformDirection(Vector3.up) * (wallclimbYMomentum/maxNominalSpeed);
-//            moveDir.Normalize();
 
             if(inputJump)
             {
@@ -793,7 +769,6 @@ public class parkourFPSController : MonoBehaviour
 
                 stopWallClimb();
             }
-
         }
         else
         {   // If the player wallclimbed all the way to the ledge
