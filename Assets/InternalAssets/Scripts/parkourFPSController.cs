@@ -38,7 +38,6 @@ public class parkourFPSController : MonoBehaviour
     [SerializeField] private float maxNominalSpeed = 50f;                           // Player's max speed without any killSpeedBonus
     private Camera camera = null;                                                   // Player's Camera
     private CharacterController controller;                                         // Player's controller
-    private CapsuleCollider collider;
     private float inputHorizontal;                                                  // [-1;1] horizontal input for strafes (smoothed)
     private float inputVertical;                                                    // [-1;1] horizontal input for running/reversing (smoothed)
     private bool inputJump;                                                         // is jump key pressed ?
@@ -148,7 +147,6 @@ public class parkourFPSController : MonoBehaviour
         controller = GetComponent<CharacterController>();
         controller.detectCollisions = true;
         mouseLook.Init(transform , camera.transform);
-        collider = GetComponent<CapsuleCollider>();
 
         originalHeight = controller.height;
         // Teleport Player to the ground to be sure of its playerState at startup
@@ -266,10 +264,6 @@ public class parkourFPSController : MonoBehaviour
         // Doing this inside FixedUpdate to make sure we didn't miss any inputs in case of lag
         inputHorizontal = CrossPlatformInputManager.GetAxis("Horizontal");
         inputVertical = CrossPlatformInputManager.GetAxis("Vertical");
-
-        inputJump = CrossPlatformInputManager.GetButton("Jump"); // Only capture Down Event for jump to avoid situation like : 
-        inputSlide = CrossPlatformInputManager.GetButton("Slide");
-
         inputJump = CrossPlatformInputManager.GetButton("Jump"); // Only capture Down Event for jump to avoid situation like : 
         inputSlide = CrossPlatformInputManager.GetButton("Slide");
         inputAttacking = CrossPlatformInputManager.GetButton("Attack");
@@ -429,8 +423,6 @@ public class parkourFPSController : MonoBehaviour
                 controller.center = new Vector3(controller.center.x,
                     controller.center.y * crouchingHeight / originalHeight,
                     controller.center.z);
-
-                collider.height = crouchingHeight;
             }
         }
         else
@@ -822,7 +814,7 @@ public class parkourFPSController : MonoBehaviour
         canWallClimb = false;
 
         RaycastHit hit;
-        bool canStand = !Physics.Raycast(controller.transform.position, Vector3.up, out hit, originalHeight + controller.skinWidth + slopeClimbingPermissionStep);
+        bool canStand = !Physics.Raycast(controller.transform.position, controller.transform.up, out hit, originalHeight + controller.skinWidth + slopeClimbingPermissionStep);
 
         if (canStand)
         {
@@ -833,16 +825,14 @@ public class parkourFPSController : MonoBehaviour
                 controller.center = new Vector3(controller.center.x,
                     controller.center.y * originalHeight / crouchingHeight,
                     controller.center.z);
-
-                collider.height = originalHeight;
-
                 camera.transform.localPosition = new Vector3(camera.transform.localPosition.x,
                        camera.transform.localPosition.y * originalHeight / crouchingHeight,
                        camera.transform.localPosition.z);
             }
             else
             {
-                moveDir = Vector3.forward;
+                moveDir = controller.transform.forward;
+                moveDir.Normalize();
                 runningMomentum -= slidingDecelerationFactor * Time.deltaTime;
                 if (runningMomentum < 0)
                 {
@@ -855,7 +845,8 @@ public class parkourFPSController : MonoBehaviour
         }
         else
         {
-            moveDir = Vector3.forward;
+            moveDir = controller.transform.forward;
+            moveDir.Normalize();
             runningMomentum -= slidingDecelerationFactor * Time.deltaTime;
             if (runningMomentum < 0)
             {
