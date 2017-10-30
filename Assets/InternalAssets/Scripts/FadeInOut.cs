@@ -45,7 +45,6 @@ public class FadeInOut : MonoBehaviour
         // Fade out
         else if (status == FadeStatus.fadeOut)
         {
-            Debug.Log("hello");
             fadeOutTime -= Time.deltaTime;
 
             blackScreen.CrossFadeAlpha(1, fadeOutTime, false);

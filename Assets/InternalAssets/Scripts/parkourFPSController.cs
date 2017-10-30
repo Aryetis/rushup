@@ -106,7 +106,6 @@ private float airControlFactor = 2.0f;                                          
     [SerializeField] private float wallclimbInitialYMomentum = 20f;                 // When player hits the wall he will immediately start climbing the wall at wallclimbInitialMomentum
     [SerializeField] private float wallclimbMaxSpeed = 10f;                         // Speed the player will be wallclimbing at, decrease over time according to wallclimbDecelerationFactor
     private Quaternion wallturnjumpRotation;                                        // Store the rotation needed to turn the camera during a wallturnjump sequence
-    private float speedAtEnterOfWallclimb;                                          // Store the speed player had when initially hitting the wallclimb
     private Vector3 wallclimbturnExitVector;                                        // Direction the player will go when executing a wallclimbturn
     public string _wallClimbAngle_ = "whatever angle is remaining from wallrunEnterAngle"; // Just indicating to LDs that wallClimbAngle is basically whatever angle is remaining 
     private float wallclimbingTime = 0f;                                            // How long the player has been wallclimbing
@@ -526,7 +525,6 @@ private float airControlFactor = 2.0f;                                          
         if(hit.collider != null && wallclimbCooldownLock <= 0 && hit.collider.gameObject != previousWallWalltricked)
         {
             playerState = PlayerState.wallclimbing;
-            speedAtEnterOfWallclimb = speed;
             wallclimbYMomentum = wallclimbInitialYMomentum;
             moveDir = Vector3.zero; // null out the moveDir as it will be updated from UpdateWallclimbing()
             previousWallWalltricked = hit.collider.gameObject;

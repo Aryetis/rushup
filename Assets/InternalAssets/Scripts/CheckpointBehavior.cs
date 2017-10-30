@@ -11,8 +11,6 @@ using UnityEngine;
  *             will be used to activate it (except for the final checkpoint)
  */
 
-// TODO : HANDLE RESPAWN IF PLAYER IS DEAD !
-
 public class CheckpointBehavior : MonoBehaviour
 {
     [SerializeField] private GameObject nextCheckpoint = null;              // Link to next checkpoint
