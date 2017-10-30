@@ -172,6 +172,13 @@ public class parkourFPSController : MonoBehaviour
 	// Update is called once per frame
 	void Update ()
     {
+        // Need to be called during Update because it's relative to the current frame.
+        inputHorizontal = CrossPlatformInputManager.GetAxis("Horizontal");
+        inputVertical = CrossPlatformInputManager.GetAxis("Vertical");
+        inputJump = CrossPlatformInputManager.GetButtonDown("Jump");
+        inputSlide = CrossPlatformInputManager.GetButton("Slide");
+        inputAttacking = CrossPlatformInputManager.GetButtonDown("Attack");
+
         /*** CAPTURING INPUTS MOVED INSIDE FixedUpdate() ***/
 
         /*** UPDATING speed (for UI and various update[State]() ***/
@@ -265,11 +272,7 @@ public class parkourFPSController : MonoBehaviour
     {
         /*** CAPTURING INPUTS ***/
         // Doing this inside FixedUpdate to make sure we didn't miss any inputs in case of lag
-        inputHorizontal = CrossPlatformInputManager.GetAxis("Horizontal");
-        inputVertical = CrossPlatformInputManager.GetAxis("Vertical");
-        inputJump = CrossPlatformInputManager.GetButton("Jump"); // Only capture Down Event for jump to avoid situation like : 
-        inputSlide = CrossPlatformInputManager.GetButton("Slide");
-        inputAttacking = CrossPlatformInputManager.GetButton("Attack");
+        
     }
 
 
