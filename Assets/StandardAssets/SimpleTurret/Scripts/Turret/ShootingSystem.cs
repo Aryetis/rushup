@@ -5,11 +5,11 @@ using UnityEngine;
 public class ShootingSystem : MonoBehaviour {
 
 	//Main turret controller Component
-	TurretController controller;
+	protected TurretController controller;
 
 	//Random Variables
 	bool reloading = false;
-	float time = 0;
+	protected float time = 0;
 
 	[Tooltip("Target to be attacked by turret")]
 	public Transform target; 
