@@ -166,6 +166,8 @@ private float airControlFactor = 2.0f;                                          
 	// Update is called once per frame
 	void Update ()
     {
+        /*** LOCK mouseLook TO PREVENT UNWANTED INPUTS ***/
+//        mouseLook.UpdateCursorLock();
     }
 
 
@@ -173,9 +175,6 @@ private float airControlFactor = 2.0f;                                          
     // FixedUpdate is called once per physic cycle
     void FixedUpdate()
     {
-
-        /*** LOCK mouseLook TO PREVENT UNWANTED INPUTS ***/
-        mouseLook.UpdateCursorLock();
 
         /*** CAPTURING INPUTS ***/
         // Doing this inside FixedUpdate to make sure we didn't miss any inputs in case of lag
