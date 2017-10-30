@@ -24,6 +24,7 @@ using UnityEngine;
 
 public class parkourFPSController : MonoBehaviour
 {
+Ray debugRay, debugRay2;
     /*Player's state variable*/
     private enum PlayerState {running, jumping, wallrunning, wallclimbing, sliding, edging, pushing, attacking, ejecting}; // Describing current state of the player : edging <=> grabed the edge of a cliff; pushing <=> pushing up from edging state; etc . jumping can be used pretty much as the default state
     private bool canWallRun = false;                                                // Describe if player is in a state that allows for him to start wallrunning (can't wallrun during a slide, duh)
@@ -165,7 +166,7 @@ private float airControlFactor = 2.0f;                                          
 	void Update ()
     {
         /*** LOCK mouseLook TO PREVENT UNWANTED INPUTS ***/
-//        mouseLook.UpdateCursorLock();
+        mouseLook.UpdateCursorLock();
     }
 
 
@@ -173,7 +174,8 @@ private float airControlFactor = 2.0f;                                          
     // FixedUpdate is called once per physic cycle
     void FixedUpdate()
     {
-
+Debug.DrawRay(debugRay.origin, debugRay.direction * 100, Color.red);
+Debug.DrawRay(debugRay2.origin, debugRay2.direction * 100, Color.blue);
         /*** CAPTURING INPUTS ***/
         // Doing this inside FixedUpdate to make sure we didn't miss any inputs in case of lag
         inputHorizontal = CrossPlatformInputManager.GetAxis("Horizontal");
@@ -726,7 +728,7 @@ private float airControlFactor = 2.0f;                                          
             // Update wallclimbingTime
             wallclimbingTime += Time.fixedDeltaTime;
 
-            // Look up. Disabled for now.
+            // Look up
             Quaternion lookDirection = Quaternion.LookRotation(hit.normal * -1);
             transform.rotation = Quaternion.Slerp(transform.rotation, lookDirection, 3.5f * Time.fixedDeltaTime);
             //TODO SMOOTH THIS !
@@ -752,11 +754,10 @@ private float airControlFactor = 2.0f;                                          
                                                                                                      // for smooth camera slerp during updateJump()
 
                 // Setting up the impulse vector for the wallclimbturn jump
-                wallclimbturnExitVector =  Quaternion.Euler(-wallclimbExitAngle,0,0) * hit.normal.normalized * wallclimbExitForce  ; 
+                wallclimbturnExitVector = Quaternion.AngleAxis(wallclimbExitAngle, Vector3.Cross(hit.normal, Vector3.up)) * hit.normal * wallclimbExitForce; 
 
                 // Set up the wallkick animation timer for updateJumping()
                 isWallTurnJumping = wallturnjumpingExitAnimationTime;
-
                 stopWallClimb();
             }
         }
