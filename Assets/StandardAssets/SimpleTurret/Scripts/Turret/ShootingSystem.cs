@@ -68,7 +68,7 @@ public class ShootingSystem : MonoBehaviour {
 		}
 	}
 
-	public void Fire(Vector3 hitPoint, GameObject hitObject){ //with hit effect
+	public virtual void Fire(Vector3 hitPoint, GameObject hitObject){ //with hit effect
 
 		if (reloading)
 			return;
