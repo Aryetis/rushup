@@ -164,17 +164,7 @@ private float airControlFactor = 2.0f;                                          
 	
 	// Update is called once per frame
 	void Update ()
-// Not used => Comment it for better performance 
     {
-
-        /*** LOCK mouseLook TO PREVENT UNWANTED INPUTS ***/
-        mouseLook.UpdateCursorLock();
-
-
-
-
-
-
     }
 
 
@@ -182,6 +172,9 @@ private float airControlFactor = 2.0f;                                          
     // FixedUpdate is called once per physic cycle
     void FixedUpdate()
     {
+
+        /*** LOCK mouseLook TO PREVENT UNWANTED INPUTS ***/
+        mouseLook.UpdateCursorLock();
 
         /*** CAPTURING INPUTS ***/
         // Doing this inside FixedUpdate to make sure we didn't miss any inputs in case of lag
@@ -214,48 +207,48 @@ private float airControlFactor = 2.0f;                                          
         /*** CALCULATING FORCE FROM INPUTS & STATE***/
         switch (playerState)
         {
-        case PlayerState.running:
+            case PlayerState.running:
             {
                 updateRunning();
                 break;
             }
-        case PlayerState.jumping:
+            case PlayerState.jumping:
             {
                 updateJumping();
                 break;
             }
-        case PlayerState.wallrunning:
+            case PlayerState.wallrunning:
             {
                 updateWallrunning();
                 break;
             }
-        case PlayerState.wallclimbing:
+            case PlayerState.wallclimbing:
             {
                 updateWallclimbing();
                 break;
             }
-        case PlayerState.sliding:
+            case PlayerState.sliding:
             {
                 updateSliding();
                 break;
             }
-        case PlayerState.edging:
+            case PlayerState.edging:
             {
                 updateEdging();
                 break;
             }
-        case PlayerState.pushing:
+            case PlayerState.pushing:
             {
                 updatePushing();
                 break;
             }
-        case PlayerState.attacking:
+            case PlayerState.attacking:
             {
                 updateAttacking();
                 break;
             }
-        default:
-            { break; }
+            default:
+                { break; }
         }
 
         /*** Manage hit by bullet ***/
