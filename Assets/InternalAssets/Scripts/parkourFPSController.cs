@@ -1,6 +1,10 @@
 ﻿using System.Collections;
-using UnityStandardAssets.Characters.FirstPerson; // only for MouseLook
-using UnityStandardAssets.CrossPlatformInput;     // TODO : check if controls are working on Android ... it shoulds otherwise there's close to no point using CrossPlatformInput
+using UnityStandardAssets.Characters.FirstPerson;
+
+// only for MouseLook
+using UnityStandardAssets.CrossPlatformInput;
+
+// TODO : check if controls are working on Android ... it shoulds otherwise there's close to no point using CrossPlatformInput
 using UnityEngine;
 using UnityEditor;
 
@@ -16,19 +20,34 @@ using UnityEditor;
 *  TODO : Beautify the whole inspector for this class using [CustomEditor(typeof(parkourFPSController))} and OnInspectorGUI()
  */
 public class ReadOnlyAttribute : PropertyAttribute
+<<<<<<< HEAD
 { }
+=======
+{
+}
+
+>>>>>>> 1155ecb7176c5c7d6748ce333de8f02f90384b41
 [CustomPropertyDrawer(typeof(ReadOnlyAttribute))]
 public class ReadOnlyDrawer : PropertyDrawer
 {
     public override float GetPropertyHeight(SerializedProperty property,
-        GUIContent label)
+<<<<<<< HEAD
+                                            GUIContent label)
+=======
+                                             GUIContent label)
+>>>>>>> 1155ecb7176c5c7d6748ce333de8f02f90384b41
     {
         return EditorGUI.GetPropertyHeight(property, label, true);
     }
 
     public override void OnGUI(Rect position,
-        SerializedProperty property,
-        GUIContent label)
+<<<<<<< HEAD
+                               SerializedProperty property,
+                               GUIContent label)
+=======
+                                SerializedProperty property,
+                                GUIContent label)
+>>>>>>> 1155ecb7176c5c7d6748ce333de8f02f90384b41
     {
         GUI.enabled = false;
         EditorGUI.PropertyField(position, property, label, true);
@@ -40,14 +59,20 @@ public class parkourFPSController : MonoBehaviour
 {
     Ray debugRay;
     /* Player's state variable*/
-    private enum PlayerState { running, jumping, wallrunning, wallclimbing, sliding, edging, pushing, attacking, ejecting }; // Describing current state of the player : edging <=> grabed the edge of a cliff; pushing <=> pushing up from edging state; etc
-    private bool canWallRun = false;                                                // Describe if player is in a state that allows for him to start wallrunning (can't wallrun during a slide, duh)
-    private bool canWallClimb = false;                                              // Describe if player is in a state that allows for him to start wallclimbing 
-    private bool canAttack = false;                                                 // Describe if player is in a state that allows for him to start attacking
-    private bool canSlide = false;                                                  // Describe if player is in a state that allows for him to start sliding
+    private enum PlayerState { running, jumping, wallrunning, wallclimbing, sliding, edging, pushing, attacking, ejecting };
+    // Describing current state of the player : edging <=> grabed the edge of a cliff; pushing <=> pushing up from edging state; etc
+    private bool canWallRun = false;
+    // Describe if player is in a state that allows for him to start wallrunning (can't wallrun during a slide, duh)
+    private bool canWallClimb = false;
+    // Describe if player is in a state that allows for him to start wallclimbing
+    private bool canAttack = false;
+    // Describe if player is in a state that allows for him to start attacking
+    private bool canSlide = false;
+    // Describe if player is in a state that allows for him to start sliding
 
     [Header("Global Variables")]
     [SerializeField]
+<<<<<<< HEAD
     private float gravity = 20f;                                   // Gravity applied to the vector on the Y axis
     [SerializeField] private float jumpStrength = 20f;                              // Impulse given at the start of a jump
     [SerializeField] private float slopeClimbingPermissionStep = 0.25f;             // Height shift allowed on Y axis between two frames to considere if the player is grounded or not 
@@ -70,6 +95,49 @@ public class parkourFPSController : MonoBehaviour
     private bool grounded;      // Not using controller.isGrounded value because result is based on the PREVIOUS MOVE state
                                 // Resulting in unreliable state when running up on slanted floors
                                 // ( https://forum.unity.com/threads/charactercontroller-isgrounded-returning-unreliable-state.494786/ ) 
+=======
+    private float gravity = 20f;
+    // Gravity applied to the vector on the Y axis
+    [SerializeField] private float jumpStrength = 20f;
+    // Impulse given at the start of a jump
+    [SerializeField] private float slopeClimbingPermissionStep = 0.25f;
+    // Height shift allowed on Y axis between two frames to considere if the player is grounded or not
+    [SerializeField] private float maxNominalSpeed = 50f;
+    // Player's max speed without any killSpeedBonus
+    private Camera camera = null;
+    // Player's Camera
+    private CharacterController controller;
+    // Player's controller
+    private CapsuleCollider collider;
+    private float inputHorizontal;
+    // [-1;1] horizontal input for strafes (smoothed)
+    private float inputVertical;
+    // [-1;1] horizontal input for running/reversing (smoothed)
+    private float prevInputHorizontal;
+    // Previous frame's inputHorizontal
+    private float prevInputVertical;
+    // Previous frame's inputVertical
+    private bool inputJump;
+    // is jump key pressed ?
+    private bool inputSlide;
+    // is sllding key pressed ?
+    private bool inputAttacking;
+    // TODO is attacking key pressed ?
+    private static PlayerState playerState = PlayerState.running;
+    // Describe current player state
+    private static float speed;
+    // Player speed along x and z axis => NOT taking into account Y axis (no falling speed displayed)
+    private Vector3 moveDir = Vector3.zero;
+    // Current frame player's movement vector
+    private Vector3 prevMoveDir = Vector3.zero;
+    // Previous frame player's movement
+    private bool prevGroundedState;
+    // Previous frame's grounded
+    private bool grounded;
+    // Not using controller.isGrounded value because result is based on the PREVIOUS MOVE state
+    // Resulting in unreliable state when running up on slanted floors
+    // ( https://forum.unity.com/threads/charactercontroller-isgrounded-returning-unreliable-state.494786/ )
+>>>>>>> 1155ecb7176c5c7d6748ce333de8f02f90384b41
     private bool hitByBullet = false;
     private Vector3 collisionDirection;
     private float bulletHitMomentum = 0f;
@@ -79,25 +147,52 @@ public class parkourFPSController : MonoBehaviour
     [Space(10)]
     [Header("Running State Variables")]
     [SerializeField]
+<<<<<<< HEAD
     private float runningMinSpeed = 10f;                           // Player will start running at this speed
     [SerializeField] private float runningRampUpTime = 0.2f;                        // Time in seconds for player to reach maxNominalSpeed (in seconds)
     [Range(0.0f, 1.0f)] [SerializeField] private float runningInertiaFactor = 0.9f; // [0;1] the bigger the less current input will impact the outcome / the more slippery the player wil be
     [SerializeField] private float runningDecelerationFactor = 0.5f;                // will decelerate at "runningDecelerationFactor" the speed it accelerates
     [SerializeField] private float jumpHeightSpeedFactor = 1.5f;                    // At full speed player will jump at jumpHeightSpeedFactor * the height of a basic jump
     private float runningMomentum = 0f;                                             // [0;runningRampUpTime] "porcentage" of the current speed wihtout acknoledging minSpeed
+=======
+    private float runningMinSpeed = 10f;
+    // Player will start running at this speed
+    [SerializeField] private float runningRampUpTime = 0.2f;
+    // Time in seconds for player to reach maxNominalSpeed (in seconds)
+    [Range(0.0f, 1.0f)] [SerializeField] private float runningInertiaFactor = 0.9f;
+    // [0;1] the bigger the less current input will impact the outcome / the more slippery the player wil be
+    [SerializeField] private float runningDecelerationFactor = 0.5f;
+    // will decelerate at "runningDecelerationFactor" the speed it accelerates
+    [SerializeField] private float jumpHeightSpeedFactor = 1.5f;
+    // At full speed player will jump at jumpHeightSpeedFactor * the height of a basic jump
+    private float runningMomentum = 0f;
+    // [0;runningRampUpTime] "porcentage" of the current speed wihtout acknoledging minSpeed
+>>>>>>> 1155ecb7176c5c7d6748ce333de8f02f90384b41
 
 
     [Space(10)]
     [Header("Airborne State Variables")]
     [SerializeField]
+<<<<<<< HEAD
     private float airControlFactor = 2.0f;                         // Determine how much the inputs performed by the player while airborne impact his direction
     private Vector3 runningToJumpingImpulse = Vector3.zero;                         // moveDir vector at the moment of the jump, used to kickstart the direction of the jump
     private Vector3 previousAirControlDir;                                          // direction of the airborne player at the previous frame
     private float cooldownLock;                                                     // player just wallkicked => forbid him to wallrun till ejectTime > 0
+=======
+    private float airControlFactor = 2.0f;
+    // Determine how much the inputs performed by the player while airborne impact his direction
+    private Vector3 runningToJumpingImpulse = Vector3.zero;
+    // moveDir vector at the moment of the jump, used to kickstart the direction of the jump
+    private Vector3 previousAirControlDir;
+    // direction of the airborne player at the previous frame
+    private float cooldownLock;
+    // player just wallkicked => forbid him to wallrun till ejectTime > 0
+>>>>>>> 1155ecb7176c5c7d6748ce333de8f02f90384b41
 
     [Space(10)]
     [Header("Wallrun State Variables")]
     [SerializeField]
+<<<<<<< HEAD
     float wallrunMaxSpeed = 50f;                                   // Max Speed during wallrun (speed will increase over time)
     [SerializeField] private float wallrunningGravityFactor = 2f;                   // The bigger => the less gravity will impact player during wallrun
     [Range(0.0f, 0.1f)] [SerializeField] private float wallrunningDecelerationFactor = 0.025f;         // Player's momentum will decrease by deltaTime*wallrunningDecelerationFactor at each frame
@@ -107,22 +202,60 @@ public class parkourFPSController : MonoBehaviour
     [SerializeField] private float wallrunEnterAngle = 45f;                         // if the player jump on the wall with an angle less than wallrunEnterAngle, he will wallrun it
     [SerializeField] private float wallrunExitAngle = 45f;                          // if the player jump on the wall with an angle less than wallrunEnterAngle, he will wallrun it
     [SerializeField] private float wallrunExitAnimationTime = 0.5f;                 // Time during wich the camera will slerp to the wallkick destination, PLAYERS INPUTS WON'T MATTER during the animation
+=======
+    float wallrunMaxSpeed = 50f;
+    // Max Speed during wallrun (speed will increase over time)
+    [SerializeField] private float wallrunningGravityFactor = 2f;
+    // The bigger => the less gravity will impact player during wallrun
+    [Range(0.0f, 0.1f)] [SerializeField] private float wallrunningDecelerationFactor = 0.025f;
+    // Player's momentum will decrease by deltaTime*wallrunningDecelerationFactor at each frame
+    [SerializeField] private float wallrunCoolDown = 0.25f;
+    // Prevent player from hitting too much wallrun in a row
+    [SerializeField] private float wallRunMinSpeed = 20f;
+    // If player goes under wallRunMinSpeed he will fall from the wall
+    [SerializeField] private float wallkickHeight = 20f;
+    // A wallkick (jump when wallruning) gives the player a boost on the Y axis of wallkickHeight
+    [SerializeField] private float wallrunEnterAngle = 45f;
+    // if the player jump on the wall with an angle less than wallrunEnterAngle, he will wallrun it
+    [SerializeField] private float wallrunExitAngle = 45f;
+    // if the player jump on the wall with an angle less than wallrunEnterAngle, he will wallrun it
+    [SerializeField] private float wallrunExitAnimationTime = 0.5f;
+    // Time during wich the camera will slerp to the wallkick destination, PLAYERS INPUTS WON'T MATTER during the animation
+>>>>>>> 1155ecb7176c5c7d6748ce333de8f02f90384b41
     private float speedAtWallkick;
-    private Quaternion wallKickRotation;                                            // Describe the camera rotation/angle desired at the end of the wallkick animation
-    private float isWallkicking;                                                    // Since how long the player has been wallkicking ?
-    private RaycastHit wallHit;                                                     // Target the wall the player is/can currently wallruning on
-    private float wallRunTime = 0.0f;                                               // How long player has been wallrunning
-    private GameObject previousWallWallran = null;                                  // keep in memory the last wall that has been wallran to prevent player from wallrunning on it two times in a row
+    private Quaternion wallKickRotation;
+    // Describe the camera rotation/angle desired at the end of the wallkick animation
+    private float isWallkicking;
+    // Since how long the player has been wallkicking ?
+    private RaycastHit wallHit;
+    // Target the wall the player is/can currently wallruning on
+    private float wallRunTime = 0.0f;
+    // How long player has been wallrunning
+    private GameObject previousWallWallran = null;
+    // keep in memory the last wall that has been wallran to prevent player from wallrunning on it two times in a row
 
     [Space(10)]
     [Header("Wallclimb State Variables")]
     [SerializeField]
+<<<<<<< HEAD
     private float snapCameraSpeed = 3f;                            // The smallest the faster the camera will snap on its wallrun position
     [SerializeField] private float wallclimbImpulse = 50f;                          // TODO
     [SerializeField] private float initialVerticalImpulse = 10f;
     [ReadOnly] public string wallClimbAngle = "(90-wallrunEnterAngle)*2";           // Just indicating to LDs that wallClimbAngle is basically whatever angle is remaining 
 
     private float wallclimbingTime = 0f;                                            // How long the player has been wallclimbing
+=======
+    private float snapCameraSpeed = 3f;
+    // The smallest the faster the camera will snap on its wallrun position
+    [SerializeField] private float wallclimbImpulse = 50f;
+    // TODO
+    [SerializeField] private float initialVerticalImpulse = 10f;
+    [ReadOnly] public string wallClimbAngle = "(90-wallrunEnterAngle)*2";
+    // Just indicating to LDs that wallClimbAngle is basically whatever angle is remaining
+
+    private float wallclimbingTime = 0f;
+    // How long the player has been wallclimbing
+>>>>>>> 1155ecb7176c5c7d6748ce333de8f02f90384b41
     private float ongoingSnapCameraTime = 0f;
     bool rightImpact;
     bool leftImpact;
@@ -130,9 +263,15 @@ public class parkourFPSController : MonoBehaviour
     [Space(10)]
     [Header("Sliding State Variables")]
     [SerializeField]
+<<<<<<< HEAD
     private float slidingMinSpeed = 10f;   // TODO
+=======
+    private float slidingMinSpeed = 10f;
+    // TODO
+>>>>>>> 1155ecb7176c5c7d6748ce333de8f02f90384b41
     [SerializeField] private float crouchingHeight = 0.3f;
-    [SerializeField] private float slidingDecelerationFactor = 0.5f;                // will decelerate at "runningDecelerationFactor" the speed it accelerates
+    [SerializeField] private float slidingDecelerationFactor = 0.5f;
+    // will decelerate at "runningDecelerationFactor" the speed it accelerates
 
     private float originalHeight;
 
@@ -140,15 +279,26 @@ public class parkourFPSController : MonoBehaviour
     [Space(10)]
     [Header("Attacking State Variables")]
     [SerializeField]
-    private float attackingImpulse = 50f;                          // TODO
-    [SerializeField] private float killSpeedBonus = 5f;                             // TODO Speed boost given immediately for each ennemy killed
+    private float attackingImpulse = 50f;
+    // TODO
+    [SerializeField] private float killSpeedBonus = 5f;
+    // TODO Speed boost given immediately for each ennemy killed
+    [SerializeField] private float hoomingRange = 20f;
+    private Vector3 attackDirection;
 
     [Space(10)]
     [Header("Mouse Properties")]
     [SerializeField]
+<<<<<<< HEAD
     public MouseLook mouseLook = null;                             // Standard Asset script taking care of moving the camera according to mouse inputs
                                                                    // public because UI must unlock cursor to allow player to click on buttons
                                                                    // Use this for initialization
+=======
+    public MouseLook mouseLook = null;
+    // Standard Asset script taking care of moving the camera according to mouse inputs
+    // public because UI must unlock cursor to allow player to click on buttons
+    // Use this for initialization
+>>>>>>> 1155ecb7176c5c7d6748ce333de8f02f90384b41
     void Start()
     {
         camera = Camera.main;
@@ -170,8 +320,11 @@ public class parkourFPSController : MonoBehaviour
         {
             Debug.LogError("Please put the Player prefab above a floor/closer to it");
         }
+<<<<<<< HEAD
         spawnTransformPosition = transform.position;
         spawnCameraTransform = camera.transform;
+=======
+>>>>>>> 1155ecb7176c5c7d6748ce333de8f02f90384b41
     }
 
 
@@ -188,6 +341,17 @@ public class parkourFPSController : MonoBehaviour
         /*** UPDATING grounded STATE ***/
         RaycastHit hit;
         grounded = Physics.Raycast(controller.transform.position, Vector3.down, out hit, (controller.height / 2f) + controller.skinWidth + slopeClimbingPermissionStep);
+
+        if (inputAttacking && playerState != PlayerState.attacking)
+        {
+            RaycastHit attackRay;
+            if (Physics.Raycast(controller.transform.position, controller.transform.forward, out attackRay, hoomingRange) && attackRay.collider.CompareTag("Enemy"))
+            {
+                playerState = PlayerState.attacking;
+                attackDirection = controller.transform.forward;
+                attackDirection.Normalize();
+            }
+        }
 
         /*** CALCULATING FORCE FROM INPUTS & STATE***/
         switch (playerState)
@@ -233,7 +397,13 @@ public class parkourFPSController : MonoBehaviour
                     break;
                 }
             default:
+<<<<<<< HEAD
                 { break; }
+=======
+                {
+                    break;
+                }
+>>>>>>> 1155ecb7176c5c7d6748ce333de8f02f90384b41
         }
 
         /*** Manage hit by bullet ***/
@@ -265,9 +435,9 @@ public class parkourFPSController : MonoBehaviour
         inputHorizontal = CrossPlatformInputManager.GetAxis("Horizontal");
         inputVertical = CrossPlatformInputManager.GetAxis("Vertical");
         inputJump = CrossPlatformInputManager.GetButtonDown("Jump"); // Only capture Down Event for jump to avoid situation like : 
-                                                                     // Player running right next to a wall, hit jump => wallrun and immediately after that wallkick
+        // Player running right next to a wall, hit jump => wallrun and immediately after that wallkick
         inputSlide = CrossPlatformInputManager.GetButton("Slide");
-
+        inputAttacking = CrossPlatformInputManager.GetButton("Attack");
     }
 
     void OnCollisionEnter(Collision col)
@@ -285,6 +455,7 @@ public class parkourFPSController : MonoBehaviour
 
             Destroy(col.gameObject);
         }
+<<<<<<< HEAD
     }
 
     void OnTriggerEnter(Collider col)
@@ -315,7 +486,14 @@ public class parkourFPSController : MonoBehaviour
                 transform.position = restartCheckpoint.transform.position;
                 mouseLook.Init(transform, restartCheckpoint.transform);
             }
+        }
 
+=======
+>>>>>>> 1155ecb7176c5c7d6748ce333de8f02f90384b41
+        else if (col.gameObject.CompareTag("Enemy"))
+        {
+            playerState = PlayerState.jumping;
+            Destroy(col.gameObject);
         }
     }
 
@@ -330,6 +508,11 @@ public class parkourFPSController : MonoBehaviour
         {
             hitByBullet = false;
         }
+<<<<<<< HEAD
+=======
+
+
+>>>>>>> 1155ecb7176c5c7d6748ce333de8f02f90384b41
     }
 
     void updateRunning()
@@ -340,6 +523,11 @@ public class parkourFPSController : MonoBehaviour
         // Reset previousWallWallran value 
         previousWallWallran = null;
 
+<<<<<<< HEAD
+=======
+
+
+>>>>>>> 1155ecb7176c5c7d6748ce333de8f02f90384b41
         if (grounded)
         {
             // Make sure that our state is set (in case of falling of a clif => no jump but still been airborne for a while)
@@ -356,7 +544,11 @@ public class parkourFPSController : MonoBehaviour
             // Correct moveDir according to the floor's slant
             RaycastHit hitInfoDown;
             if (Physics.SphereCast(transform.position, controller.radius, Vector3.down, out hitInfoDown,
+<<<<<<< HEAD
                controller.height / 2f, Physics.AllLayers, QueryTriggerInteraction.Ignore))
+=======
+                    controller.height / 2f, Physics.AllLayers, QueryTriggerInteraction.Ignore))
+>>>>>>> 1155ecb7176c5c7d6748ce333de8f02f90384b41
             {
                 moveDir = Vector3.ProjectOnPlane(moveDir, hitInfoDown.normal).normalized;
             }
@@ -366,13 +558,18 @@ public class parkourFPSController : MonoBehaviour
             if (moving && runningMomentum <= runningRampUpTime)
             {
                 runningMomentum += Time.deltaTime; // build up "temporal" momentum 
-                if (runningMomentum > runningRampUpTime)  // till we reach rampUpTime
-                {
+                if (runningMomentum > runningRampUpTime)
+                {  // till we reach rampUpTime
                     runningMomentum = runningRampUpTime;
                 }
             }
+<<<<<<< HEAD
             else // If Player is letting go of the "forward" key, reduce "momentum"
             {
+=======
+            else
+            { // If Player is letting go of the "forward" key, reduce "momentum"
+>>>>>>> 1155ecb7176c5c7d6748ce333de8f02f90384b41
                 runningMomentum -= runningDecelerationFactor * Time.deltaTime;
                 if (runningMomentum < 0)
                 {
@@ -381,17 +578,21 @@ public class parkourFPSController : MonoBehaviour
             }
 
             // Compute moveDir according to minSpeed, maxNominalSpeed, deltaTime, inertiaFactor, etc
-            if (speed <= 0.5) // if player's speed is below minSpeed => kickstart player to runningMinSpeed
-            {                 // no need to check if player is moving as in this case moveDir will already be at 0
+            if (speed <= 0.5)
+            { // if player's speed is below minSpeed => kickstart player to runningMinSpeed// no need to check if player is moving as in this case moveDir will already be at 0
                 moveDir *= runningMinSpeed;
             }
-            else
-            if (!moving && speed <= runningMinSpeed) // if player is decelerating and going below runningMinSpeed => Stop him immediately
-            {
+            else if (!moving && speed <= runningMinSpeed)
+            { // if player is decelerating and going below runningMinSpeed => Stop him immediately
                 moveDir = Vector3.zero;
             }
+<<<<<<< HEAD
             else // Player is moving beyond runningMinSpeed
             {
+=======
+            else
+            { // Player is moving beyond runningMinSpeed
+>>>>>>> 1155ecb7176c5c7d6748ce333de8f02f90384b41
                 Vector3 foo = moveDir * (runningMinSpeed + ((maxNominalSpeed - runningMinSpeed) * (runningMomentum / runningRampUpTime))); // Calculate current inputs impact on moveDir
                 moveDir = foo * (1 - runningInertiaFactor) + prevMoveDir * runningInertiaFactor; // mix current inputs vector and previous one according to runningInertiaFactor
             }
@@ -417,8 +618,8 @@ public class parkourFPSController : MonoBehaviour
                 collider.height = crouchingHeight;
             }
         }
-        else // Player is running from an edge => change state to "jumping" and override current update()'s cycle result
-        {
+        else
+        { // Player is running from an edge => change state to "jumping" and override current update()'s cycle result
             runningToJumpingImpulse = moveDir;
             playerState = PlayerState.jumping;
         }
@@ -438,8 +639,13 @@ public class parkourFPSController : MonoBehaviour
             return;
         }
 
+<<<<<<< HEAD
         if (isWallkicking > 0) // Check if player is wallkicking / Iterage over animation and ignore inputs
         {
+=======
+        if (isWallkicking > 0)
+        { // Check if player is wallkicking / Iterage over animation and ignore inputs
+>>>>>>> 1155ecb7176c5c7d6748ce333de8f02f90384b41
             // Turn Camera 
             transform.rotation = Quaternion.Slerp(transform.rotation, wallKickRotation, 3.5f * Time.deltaTime);
 
@@ -462,8 +668,8 @@ public class parkourFPSController : MonoBehaviour
             // DO NOT proceed to continue normal behavior as wallckick state is not user inputs based
             return;
         }
-        else // Update Camera look and freedom according to playerState
-        {
+        else
+        { // Update Camera look and freedom according to playerState
             updateCamera();
         }
 
@@ -517,8 +723,8 @@ public class parkourFPSController : MonoBehaviour
         // Check that player isn't bashing its head on the ceiling
         RaycastHit ceilingHit;
         if (Physics.SphereCast(transform.position, controller.radius, Vector3.up, out ceilingHit,
-                controller.height / 2f, Physics.AllLayers, QueryTriggerInteraction.Ignore)) // player hit its head during a jump    
-        {
+                controller.height / 2f, Physics.AllLayers, QueryTriggerInteraction.Ignore))
+        { // player hit its head during a jump    
             moveDir.y = 0;
         }
         else
@@ -579,8 +785,8 @@ public class parkourFPSController : MonoBehaviour
         {
             // update wallHit, check that we're still riding the wall
             wallHit = checkAccessibleWallrun();
-            if (wallHit.collider == null) // Reached end of the wall
-            {
+            if (wallHit.collider == null)
+            { // Reached end of the wall
                 stopWallRun();
                 return;
             }
@@ -619,17 +825,21 @@ public class parkourFPSController : MonoBehaviour
                 stopWallRun(); // user decided to stop wallrunning or ran out of speed => don't allow him to wallrun again
             }
 
-            if (inputJump == true) // player requested a wallkick
-            {
+            if (inputJump == true)
+            { // player requested a wallkick
                 // Apply wallkick 
                 runningToJumpingImpulse = Vector3.zero;                         // reset runningToJumpingImpulse in case player has been chaining the wallkicks
                 moveDir = Vector3.zero;                                         // and moveDir too because it's affected by previous runningToJumpingImpulse
                 float wallrunExitAngleAdapated = (leftImpact) ? wallrunExitAngle : -1 * wallrunExitAngle;             // Get direction angle from wall 
                 Quaternion originalRotation = transform.rotation;                                                    // store current rotation
                 wallKickRotation = Quaternion.AngleAxis(wallrunExitAngleAdapated, Vector3.up) * transform.rotation; // compute wallkick quaternion rotation and store it 
-                                                                                                                    // for smooth camera slerp during updateJump()
+                // for smooth camera slerp during updateJump()
+<<<<<<< HEAD
+=======
 
+>>>>>>> 1155ecb7176c5c7d6748ce333de8f02f90384b41
                 // Keep track of player's wallrunning speed and transfer it to wallkick's speed 
+
                 speedAtWallkick = speed;
 
                 // Set up the wallkick animation timer for updateJumping()
@@ -736,8 +946,13 @@ public class parkourFPSController : MonoBehaviour
                 collider.height = originalHeight;
 
                 camera.transform.localPosition = new Vector3(camera.transform.localPosition.x,
+<<<<<<< HEAD
                        camera.transform.localPosition.y * originalHeight / crouchingHeight,
                        camera.transform.localPosition.z);
+=======
+                    camera.transform.localPosition.y * originalHeight / crouchingHeight,
+                    camera.transform.localPosition.z);
+>>>>>>> 1155ecb7176c5c7d6748ce333de8f02f90384b41
             }
             else
             {
@@ -788,14 +1003,13 @@ public class parkourFPSController : MonoBehaviour
     }
 
 
-
     void updateAttacking()
     {
+        // Need to find a way to prevent player to go beyond target.
+        moveDir = attackDirection * attackingImpulse;
         // Update Camera look and freedom according to playerState
         updateCamera();
-
     }
-
 
 
     void updateCamera()
@@ -819,18 +1033,21 @@ public class parkourFPSController : MonoBehaviour
     }
 
 
-
     private void updateSpeed()
     {
         speed = (float)Mathf.Sqrt(controller.velocity.x * controller.velocity.x +
+<<<<<<< HEAD
             controller.velocity.z * controller.velocity.z);
+=======
+        controller.velocity.z * controller.velocity.z);
+>>>>>>> 1155ecb7176c5c7d6748ce333de8f02f90384b41
     }
 
     public static string getPlayerState()
     {
         return playerState.ToString();
-    }
 
+    }
 
 
     public static string getSpeed()
