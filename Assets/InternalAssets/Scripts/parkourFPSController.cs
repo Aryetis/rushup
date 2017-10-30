@@ -297,6 +297,7 @@ public class parkourFPSController : MonoBehaviour
             prevMoveDir = Vector3.zero;
             previousAirControlDir = Vector3.zero;
             previousWallWalltricked = null;
+            playerState = PlayerState.running;
 
             // teleport player
             GameObject restartCheckpoint = CheckpointBehavior.getRestartCheckpoint();
