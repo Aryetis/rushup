@@ -19,6 +19,7 @@ using UnityEngine;
  * TODO (before the end of the project) list :
  *      _ find a more elegant solution to the immediate jump => wall => jump problem
  *      _ smooth camera movements during wallclimb & wallclimbturn
+ *      _ move updates() to fixedUpdate()
  */
 
 public class parkourFPSController : MonoBehaviour
