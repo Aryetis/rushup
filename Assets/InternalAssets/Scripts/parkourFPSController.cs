@@ -169,6 +169,12 @@ private float airControlFactor = 2.0f;                                          
     {
         /*** LOCK mouseLook TO PREVENT UNWANTED INPUTS ***/
         mouseLook.UpdateCursorLock();
+
+        inputHorizontal = CrossPlatformInputManager.GetAxis("Horizontal");
+        inputVertical = CrossPlatformInputManager.GetAxis("Vertical");
+        inputJump = CrossPlatformInputManager.GetButton("Jump"); // Only capture Down Event for jump to avoid situation like : 
+        inputSlide = CrossPlatformInputManager.GetButton("Slide");
+        inputAttacking = CrossPlatformInputManager.GetButton("Attack");
     }
 
 
@@ -176,16 +182,9 @@ private float airControlFactor = 2.0f;                                          
     // FixedUpdate is called once per physic cycle
     void FixedUpdate()
     {
-Debug.DrawRay(debugRay.origin, debugRay.direction * 100, Color.red);
-Debug.DrawRay(debugRay2.origin, debugRay2.direction * 100, Color.blue);
-        /*** CAPTURING INPUTS ***/
-        // Doing this inside FixedUpdate to make sure we didn't miss any inputs in case of lag
-        inputHorizontal = CrossPlatformInputManager.GetAxis("Horizontal");
-        inputVertical = CrossPlatformInputManager.GetAxis("Vertical");
-        inputJump = CrossPlatformInputManager.GetButton("Jump"); // Only capture Down Event for jump to avoid situation like : 
-        inputSlide = CrossPlatformInputManager.GetButton("Slide");
-        inputAttacking = CrossPlatformInputManager.GetButton("Attack");
-
+        Debug.DrawRay(debugRay.origin, debugRay.direction * 100, Color.red);
+        Debug.DrawRay(debugRay2.origin, debugRay2.direction * 100, Color.blue);
+            
         /*** UPDATING speed (for UI and various update[State]() ***/
         updateSpeed();
 
