@@ -19,20 +19,20 @@ using UnityEngine;
  * TODO (before the end of the project) list :
  *      _ find a more elegant solution to the immediate jump => wall => jump problem
  *      _ smooth camera movements during wallclimb & wallclimbturn
+ *      _ move updates() to fixedUpdate()
  */
 
 public class parkourFPSController : MonoBehaviour
 {
+Ray debugRay, debugRay2;
     /*Player's state variable*/
     private enum PlayerState {running, jumping, wallrunning, wallclimbing, sliding, edging, pushing, attacking, ejecting}; // Describing current state of the player : edging <=> grabed the edge of a cliff; pushing <=> pushing up from edging state; etc . jumping can be used pretty much as the default state
     private bool canWallRun = false;                                                // Describe if player is in a state that allows for him to start wallrunning (can't wallrun during a slide, duh)
     private bool canWallClimb = false;                                              // Describe if player is in a state that allows for him to start wallclimbing 
-    private bool canAttack = false;                                                 // Describe if player is in a state that allows for him to start attacking
-    private bool canSlide = false;                                                  // Describe if player is in a state that allows for him to start sliding
 
     [Header("Global Variables")]
     [SerializeField]
-    private float gravity = 20f;                                   // Gravity applied to the vector on the Y axis
+    private float gravity = 20f;                                                    // Gravity applied to the vector on the Y axis
     [SerializeField] private float jumpStrength = 20f;                              // Impulse given at the start of a jump
     [SerializeField] private float slopeClimbingPermissionStep = 0.25f;             // Height shift allowed on Y axis between two frames to considere if the player is grounded or not 
     [SerializeField] private float maxNominalSpeed = 50f;                           // Player's max speed without any killSpeedBonus
@@ -60,7 +60,7 @@ public class parkourFPSController : MonoBehaviour
     [Space(10)]
     [Header("Running State Variables")]
     [SerializeField]
-    private float runningMinSpeed = 10f;                           // Player will start running at this speed
+    private float runningMinSpeed = 10f;                                            // Player will start running at this speed
     [SerializeField] private float runningRampUpTime = 0.2f;                        // Time in seconds for player to reach maxNominalSpeed (in seconds)
     [Range(0.0f, 1.0f)] [SerializeField] private float runningInertiaFactor = 0.9f; // [0;1] the bigger the less current input will impact the outcome / the more slippery the player wil be
     [SerializeField] private float runningDecelerationFactor = 0.5f;                // will decelerate at "runningDecelerationFactor" the speed it accelerates
@@ -70,7 +70,7 @@ public class parkourFPSController : MonoBehaviour
     [Space(10)]
     [Header("Airborne State Variables")]
     [SerializeField]
-    private float airControlFactor = 2.0f;                         // Determine how much the inputs performed by the player while airborne impact his direction
+private float airControlFactor = 2.0f;                                              // Determine how much the inputs performed by the player while airborne impact his direction
     private Vector3 runningToJumpingImpulse = Vector3.zero;                         // moveDir vector at the moment of the jump, used to kickstart the direction of the jump
     private Vector3 previousAirControlDir;                                          // direction of the airborne player at the previous frame
     private float wallrunCooldownLock;                                              // player just wallkicked => forbid him to wallrun till ejectTime > 0
@@ -79,7 +79,7 @@ public class parkourFPSController : MonoBehaviour
     [Space(10)]
     [Header("Wallrun State Variables")]
     [SerializeField]
-    float wallrunMaxSpeed = 50f;                                   // Max Speed during wallrun (speed will increase over time)
+    float wallrunMaxSpeed = 50f;                                                    // Max Speed during wallrun (speed will increase over time)
     [SerializeField] private float wallrunningGravityFactor = 2f;                   // The bigger => the less gravity will impact player during wallrun
     [Range(0.0f, 0.1f)] [SerializeField] private float wallrunningDecelerationFactor = 0.025f; // Player's momentum will decrease by deltaTime*wallrunningDecelerationFactor at each frame
     [SerializeField] private float wallrunCoolDown = 0.25f;                         // In seconds, Prevent player from hitting too much wallrun in a row
@@ -107,7 +107,6 @@ public class parkourFPSController : MonoBehaviour
     [SerializeField] private float wallclimbInitialYMomentum = 20f;                 // When player hits the wall he will immediately start climbing the wall at wallclimbInitialMomentum
     [SerializeField] private float wallclimbMaxSpeed = 10f;                         // Speed the player will be wallclimbing at, decrease over time according to wallclimbDecelerationFactor
     private Quaternion wallturnjumpRotation;                                        // Store the rotation needed to turn the camera during a wallturnjump sequence
-    private float speedAtEnterOfWallclimb;                                          // Store the speed player had when initially hitting the wallclimb
     private Vector3 wallclimbturnExitVector;                                        // Direction the player will go when executing a wallclimbturn
     public string _wallClimbAngle_ = "whatever angle is remaining from wallrunEnterAngle"; // Just indicating to LDs that wallClimbAngle is basically whatever angle is remaining 
     private float wallclimbingTime = 0f;                                            // How long the player has been wallclimbing
@@ -118,9 +117,6 @@ public class parkourFPSController : MonoBehaviour
 
     [Space(10)]
     [Header("Sliding State Variables")]
-    [SerializeField]
-    private float slidingMinSpeed = 10f;   // TODO
-
     [SerializeField] private float crouchingHeight = 0.3f;
     [SerializeField] private float slidingDecelerationFactor = 0.5f;                // will decelerate at "runningDecelerationFactor" the speed it accelerates
     private float originalHeight;
@@ -131,7 +127,6 @@ public class parkourFPSController : MonoBehaviour
     private float attackingImpulse = 50f;
     // TODO
     [SerializeField] private float killSpeedBonus = 5f;
-    // TODO Speed boost given immediately for each ennemy killed
     [SerializeField] private float hoomingRange = 20f;
     private Vector3 attackDirection;
     [SerializeField] private float hoomingAttackMomentum = 1f;
@@ -172,8 +167,24 @@ public class parkourFPSController : MonoBehaviour
 	// Update is called once per frame
 	void Update ()
     {
-        /*** CAPTURING INPUTS MOVED INSIDE FixedUpdate() ***/
+        /*** LOCK mouseLook TO PREVENT UNWANTED INPUTS ***/
+        mouseLook.UpdateCursorLock();
 
+        inputHorizontal = CrossPlatformInputManager.GetAxis("Horizontal");
+        inputVertical = CrossPlatformInputManager.GetAxis("Vertical");
+        inputJump = CrossPlatformInputManager.GetButton("Jump"); // Only capture Down Event for jump to avoid situation like : 
+        inputSlide = CrossPlatformInputManager.GetButton("Slide");
+        inputAttacking = CrossPlatformInputManager.GetButton("Attack");
+    }
+
+
+
+    // FixedUpdate is called once per physic cycle
+    void FixedUpdate()
+    {
+        Debug.DrawRay(debugRay.origin, debugRay.direction * 100, Color.red);
+        Debug.DrawRay(debugRay2.origin, debugRay2.direction * 100, Color.blue);
+            
         /*** UPDATING speed (for UI and various update[State]() ***/
         updateSpeed();
 
@@ -199,45 +210,45 @@ public class parkourFPSController : MonoBehaviour
         switch (playerState)
         {
             case PlayerState.running:
-                {
-                    updateRunning();
-                    break;
-                }
+            {
+                updateRunning();
+                break;
+            }
             case PlayerState.jumping:
-                {
-                    updateJumping();
-                    break;
-                }
+            {
+                updateJumping();
+                break;
+            }
             case PlayerState.wallrunning:
-                {
-                    updateWallrunning();
-                    break;
-                }
+            {
+                updateWallrunning();
+                break;
+            }
             case PlayerState.wallclimbing:
-                {
-                    updateWallclimbing();
-                    break;
-                }
+            {
+                updateWallclimbing();
+                break;
+            }
             case PlayerState.sliding:
-                {
-                    updateSliding();
-                    break;
-                }
+            {
+                updateSliding();
+                break;
+            }
             case PlayerState.edging:
-                {
-                    updateEdging();
-                    break;
-                }
+            {
+                updateEdging();
+                break;
+            }
             case PlayerState.pushing:
-                {
-                    updatePushing();
-                    break;
-                }
+            {
+                updatePushing();
+                break;
+            }
             case PlayerState.attacking:
-                {
-                    updateAttacking();
-                    break;
-                }
+            {
+                updateAttacking();
+                break;
+            }
             default:
                 { break; }
         }
@@ -249,27 +260,11 @@ public class parkourFPSController : MonoBehaviour
         }
 
         /*** APPLYING moveDir FORCE ***/
-        controller.Move(moveDir * Time.deltaTime);
+        controller.Move(moveDir * Time.fixedDeltaTime);
 
         /*** CONSERVING DATA FOR FUTURE REFERENCES ***/
         prevMoveDir = moveDir;
 
-        /*** LOCK mouseLook TO PREVENT UNWANTED INPUTS ***/
-        mouseLook.UpdateCursorLock();
-    }
-
-
-
-    // FixedUpdate is called once per physic cycle
-    void FixedUpdate()
-    {
-        /*** CAPTURING INPUTS ***/
-        // Doing this inside FixedUpdate to make sure we didn't miss any inputs in case of lag
-        inputHorizontal = CrossPlatformInputManager.GetAxis("Horizontal");
-        inputVertical = CrossPlatformInputManager.GetAxis("Vertical");
-        inputJump = CrossPlatformInputManager.GetButton("Jump"); // Only capture Down Event for jump to avoid situation like : 
-        inputSlide = CrossPlatformInputManager.GetButton("Slide");
-        inputAttacking = CrossPlatformInputManager.GetButton("Attack");
     }
 
 
@@ -329,7 +324,7 @@ public class parkourFPSController : MonoBehaviour
         if (bulletHitMomentum < 1.0)
         {
             moveDir += collisionDirection;
-            bulletHitMomentum += Time.deltaTime;
+            bulletHitMomentum += Time.fixedDeltaTime;
         }
         else
         {
@@ -379,7 +374,7 @@ public class parkourFPSController : MonoBehaviour
             bool moving = (inputHorizontal != 0 || inputVertical != 0) ? true : false;
             if (moving && runningMomentum <= runningRampUpTime)
             {
-                runningMomentum += Time.deltaTime; // build up "temporal" momentum 
+                runningMomentum += Time.fixedDeltaTime; // build up "temporal" momentum 
                 if (runningMomentum > runningRampUpTime)
                 {  // till we reach rampUpTime
                     runningMomentum = runningRampUpTime;
@@ -387,7 +382,7 @@ public class parkourFPSController : MonoBehaviour
             }
             else // If Player is letting go of the "forward" key, reduce "momentum"
             {
-                runningMomentum -= runningDecelerationFactor * Time.deltaTime;
+                runningMomentum -= runningDecelerationFactor * Time.fixedDeltaTime;
                 if (runningMomentum < 0)
                 {
                     runningMomentum = 0;
@@ -436,7 +431,7 @@ public class parkourFPSController : MonoBehaviour
         }
 
         // Applying gravity
-        moveDir.y -= gravity * Time.deltaTime;
+        moveDir.y -= gravity * Time.fixedDeltaTime;
     }
 
 
@@ -456,7 +451,7 @@ public class parkourFPSController : MonoBehaviour
         {
 
             // Turn Camera 
-            transform.rotation = Quaternion.Slerp(transform.rotation, wallKickRotation, 3.5f * Time.deltaTime);
+            transform.rotation = Quaternion.Slerp(transform.rotation, wallKickRotation, 3.5f * Time.fixedDeltaTime);
 
             // Reset mouseLook internals quaternion has we indirectly messed our own but not its
             mouseLook.Init(transform, camera.transform);
@@ -468,7 +463,7 @@ public class parkourFPSController : MonoBehaviour
                 moveDir.y += wallkickHeight;
 
             // Decrease isWallkicking timer
-            isWallkicking -= Time.deltaTime;
+            isWallkicking -= Time.fixedDeltaTime;
 
             // Set basic vector for airControlDir for when the wallkick animation will be over (at every frame of the wallkick even tho it will be used only at the end, because why waste time on an if) 
             // this way the player's direction will be the same at the end of the wallkick->start of the fall/jumping state
@@ -481,7 +476,7 @@ public class parkourFPSController : MonoBehaviour
         if(isWallTurnJumping > 0) // Check if player is wallturnjumping / Iterate over animation and ignore inputs
         {
             // Turn Camera 
-            transform.rotation = Quaternion.Slerp(transform.rotation, wallturnJumpRotation, 350f * Time.deltaTime);
+            transform.rotation = Quaternion.Slerp(transform.rotation, wallturnJumpRotation, 350f * Time.fixedDeltaTime);
             //TODO SMOOTH THIS !
 
             // Reset mouseLook internals quaternion has we indirectly messed our own but not its
@@ -491,7 +486,7 @@ public class parkourFPSController : MonoBehaviour
             previousAirControlDir = moveDir;
 
             // Decrease isWallkicking timer
-            isWallTurnJumping -= Time.deltaTime;
+            isWallTurnJumping -= Time.fixedDeltaTime;
 
             // DO NOT proceed to continue normal behavior as wallckick state is not user inputs based
             return;
@@ -504,13 +499,13 @@ public class parkourFPSController : MonoBehaviour
         // Update wallrunCooldownLock
         if (wallrunCooldownLock > 0)
         {
-            wallrunCooldownLock -= Time.deltaTime;
+            wallrunCooldownLock -= Time.fixedDeltaTime;
         }
 
         // Update wallclimbCooldownLock
         if (wallclimbCooldownLock > 0)
         {
-            wallclimbCooldownLock -= Time.deltaTime;
+            wallclimbCooldownLock -= Time.fixedDeltaTime;
         }
 
         // Do a wall run check and change state if successful.
@@ -527,7 +522,6 @@ public class parkourFPSController : MonoBehaviour
         if(hit.collider != null && wallclimbCooldownLock <= 0 && hit.collider.gameObject != previousWallWalltricked)
         {
             playerState = PlayerState.wallclimbing;
-            speedAtEnterOfWallclimb = speed;
             wallclimbYMomentum = wallclimbInitialYMomentum;
             moveDir = Vector3.zero; // null out the moveDir as it will be updated from UpdateWallclimbing()
             previousWallWalltricked = hit.collider.gameObject;
@@ -569,7 +563,7 @@ public class parkourFPSController : MonoBehaviour
         }
 
         // Applying gravity
-        moveDir.y -= gravity * Time.deltaTime;
+        moveDir.y -= gravity * Time.fixedDeltaTime;
 
         // Keeping track of airControlDir as we don't want to be able to immediately transform airControlDir from full left to full right, we must fight it too
         previousAirControlDir = airControlDir;
@@ -653,10 +647,10 @@ public class parkourFPSController : MonoBehaviour
 
             // slerp camera on place 
             Quaternion lookDirection = Quaternion.LookRotation(crossProduct);
-            transform.rotation = Quaternion.Slerp(transform.rotation, lookDirection, 3.5f * Time.deltaTime);
+            transform.rotation = Quaternion.Slerp(transform.rotation, lookDirection, 3.5f * Time.fixedDeltaTime);
 
             // Decrement momentum 
-            runningMomentum -= wallrunningDecelerationFactor * Time.deltaTime;
+            runningMomentum -= wallrunningDecelerationFactor * Time.fixedDeltaTime;
             if (runningMomentum < 0)
             {
                 runningMomentum = 0;
@@ -669,10 +663,10 @@ public class parkourFPSController : MonoBehaviour
 
             // Set the vertical curve of the wallrun
             moveDir.y = prevMoveDir.y;
-            moveDir.y -= (gravity / wallrunningGravityFactor) * Time.deltaTime;
+            moveDir.y -= (gravity / wallrunningGravityFactor) * Time.fixedDeltaTime;
 
             // update wallRunTime
-            wallRunTime += Time.deltaTime;
+            wallRunTime += Time.fixedDeltaTime;
 
             if (inputJump == true) // player requested a wallkick
             {
@@ -734,39 +728,22 @@ public class parkourFPSController : MonoBehaviour
             playerState = PlayerState.wallclimbing;
 
             // Update wallclimbingTime
-            wallclimbingTime += Time.deltaTime;
+            wallclimbingTime += Time.fixedDeltaTime;
 
-            // Look up. Disabled for now.
+            // Look up
             Quaternion lookDirection = Quaternion.LookRotation(hit.normal * -1);
-            transform.rotation = Quaternion.Slerp(transform.rotation, lookDirection, 3.5f * Time.deltaTime);
+            transform.rotation = Quaternion.Slerp(transform.rotation, lookDirection, 3.5f * Time.fixedDeltaTime);
             //TODO SMOOTH THIS !
 
-            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-
-            Debug.Log("wallclimbYMomentum : " + wallclimbYMomentum);
-
             // Decrement wallclimbYMomentum
-            wallclimbYMomentum -= wallclimbDecelerationFactor*Time.deltaTime;
+            wallclimbYMomentum -= wallclimbDecelerationFactor*Time.fixedDeltaTime;
             if (wallclimbYMomentum < 0)
             {
                 wallclimbYMomentum = 0;
             }
 
-
             // Move up 
             moveDir.y = transform.TransformDirection(Vector3.up).y * ((wallclimbYMomentum/wallclimbInitialYMomentum) * wallclimbMaxSpeed ); // go up * momentum * predetermined max speed
-                      
-//            moveDir += transform.TransformDirection(Vector3.up) * (wallclimbYMomentum/maxNominalSpeed);
-//            moveDir.Normalize();
 
             if(inputJump)
             {
@@ -779,14 +756,71 @@ public class parkourFPSController : MonoBehaviour
                                                                                                      // for smooth camera slerp during updateJump()
 
                 // Setting up the impulse vector for the wallclimbturn jump
-                wallclimbturnExitVector =  Quaternion.Euler(-wallclimbExitAngle,0,0) * hit.normal.normalized * wallclimbExitForce  ; 
+                wallclimbturnExitVector = Quaternion.AngleAxis(wallclimbExitAngle, Vector3.Cross(hit.normal, Vector3.up)) * hit.normal * wallclimbExitForce; 
+                /**
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * TODO :
+Merge                                                           DONE
+Menus                                                           DONE
+Music                                                           DONE
+Tutorial text zone                                              DONE
+Curseur UI                                                      DONE        
+reset vitesse duruing respawn                                   DONE
+nettoyer code, le documenter                                    DOING 
+corriger system de jump                                         DONE
+doc technique                                                   
+doc projet organisation     
+mouvement de caméra fluide pour wallclimb et wallturnjump       
+TESTER LA BUILD WINDOWS POUR VOIR DIFFERENCE AVEC EDITOR !!!!!! 
 
+
+fix on checkpoint direction
+son de pas, saut, atterissage                                   
+killSpeedBonus
+
+
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * 
+                 * */
                 // Set up the wallkick animation timer for updateJumping()
                 isWallTurnJumping = wallturnjumpingExitAnimationTime;
-
                 stopWallClimb();
             }
-
         }
         else
         {   // If the player wallclimbed all the way to the ledge
@@ -837,7 +871,7 @@ public class parkourFPSController : MonoBehaviour
             {
                 moveDir = controller.transform.forward;
                 moveDir.Normalize();
-                runningMomentum -= slidingDecelerationFactor * Time.deltaTime;
+                runningMomentum -= slidingDecelerationFactor * Time.fixedDeltaTime;
                 if (runningMomentum < 0)
                 {
                     runningMomentum = 0;
@@ -851,7 +885,7 @@ public class parkourFPSController : MonoBehaviour
         {
             moveDir = controller.transform.forward;
             moveDir.Normalize();
-            runningMomentum -= slidingDecelerationFactor * Time.deltaTime;
+            runningMomentum -= slidingDecelerationFactor * Time.fixedDeltaTime;
             if (runningMomentum < 0)
             {
                 runningMomentum = 0;
